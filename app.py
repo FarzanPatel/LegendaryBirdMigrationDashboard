@@ -51,5 +51,6 @@ def main():
     
     glossary_popup()
 
+# Optional if you run this standalone
 if __name__ == "__main__":
     main()

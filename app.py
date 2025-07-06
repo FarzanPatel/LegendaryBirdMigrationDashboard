@@ -6,7 +6,7 @@ from translation import select_language, t
 from glossary import glossary_popup
 from judge_mode import run_judge_walkthrough
 from accessibility import alt_text, font_scaling, contrast_mode
-from ml_scenarios import run_scenario_interface
+from scenarios import run_scenario_interface
 
 # Configure the page
 st.set_page_config(page_title="Legendary Bird Migration Dashboard", layout="wide")

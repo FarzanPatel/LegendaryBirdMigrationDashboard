@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import HeroHeader from "../components/HeroHeader";
-import MigrationMap from "../components/MigrationMap";
 import StatsCards from "../components/StatsCards";
 import ScenarioPanel from "../components/ScenarioPanel";
 import InsightsPanel from "../components/InsightsPanel";
 import "../styles/legendary-theme.css";
+
+// Dynamically import migration map so it only loads on client (no SSR)
+const MigrationMap = dynamic(() => import("../components/MigrationMap"), { ssr: false });
 
 export default function IndexPage() {
   const [routes, setRoutes] = useState([]);

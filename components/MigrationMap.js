@@ -14,11 +14,11 @@ export default function MigrationMap({ routes }) {
           data: routes,
           getSourcePosition: d => [d.start_long, d.start_lat],
           getTargetPosition: d => [d.end_long, d.end_lat],
-          getSourceColor: d => colorMap[Math.min(d.risk,3)],
-          getTargetColor: d => colorMap[Math.min(d.risk,3)],
+          getSourceColor: d => colorMap[Math.min(d.risk, 3)],
+          getTargetColor: d => colorMap[Math.min(d.risk, 3)],
           getWidth: d => d.risk >= 3 ? 6 : 2,
           pickable: true,
-          autoHighlight: true,
+          autoHighlight: true
         }),
       ]}
     >

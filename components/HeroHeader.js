@@ -9,7 +9,7 @@ export default function HeroHeader({ stats }) {
         {Object.entries(stats).map(([label, value]) => (
           <div key={label} className="kpi-card">
             <div className="value">{value}</div>
-            <div className="label">{label}</div>
+            <div className="label">{label.replaceAll("_"," ")}</div>
           </div>
         ))}
       </div>

@@ -1,6 +1,7 @@
 import DeckGL from '@deck.gl/react';
-import {StaticMap} from 'react-map-gl';
-import {ArcLayer} from '@deck.gl/layers';
+import { StaticMap } from 'react-map-gl';
+import { ArcLayer } from '@deck.gl/layers';
+// Optionally: import 'mapbox-gl/dist/mapbox-gl.css';
 
 export default function MigrationMap({ routes }) {
   const colorMap = [[255,85,79], [250,180,80], [44,123,229], [180,180,180]];

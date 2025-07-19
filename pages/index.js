@@ -6,7 +6,7 @@ import ScenarioPanel from "../components/ScenarioPanel";
 import InsightsPanel from "../components/InsightsPanel";
 import "../styles/legendary-theme.css";
 
-// Dynamically import the map component so mapbox-gl/react-map-gl is only ever loaded client-side
+// Map loaded ONLY client-side
 const MigrationMap = dynamic(() => import("../components/MigrationMap"), { ssr: false });
 
 export default function IndexPage() {
@@ -17,9 +17,9 @@ export default function IndexPage() {
   const [scenarioIdx, setScenarioIdx] = useState(0);
 
   useEffect(() => {
-    fetch("/data/routes.geojson")
-      .then(r => r.json()).then(data => {
-        setRoutes(data.features.map(f => ({
+    fetch("/data/routes.geojson").then(r => r.json()).then(data => {
+      setRoutes(
+        data.features.map(f => ({
           ...f.properties,
           start_lat: f.geometry.coordinates[0][1],
           start_long: f.geometry.coordinates[0][0],
@@ -29,11 +29,12 @@ export default function IndexPage() {
           species: f.properties.Species,
           region: f.properties.Region,
           disruption: f.properties.Interrupted_Reason || ""
-        })));
-      });
-    fetch("/data/dashboard_stats.json").then(r=>r.json()).then(setStats);
-    fetch("/data/scenarios.json").then(r=>r.json()).then(setScenarios);
-    fetch("/data/insights.json").then(r=>r.json()).then(setInsights);
+        }))
+      );
+    });
+    fetch("/data/dashboard_stats.json").then(r => r.json()).then(setStats);
+    fetch("/data/scenarios.json").then(r => r.json()).then(setScenarios);
+    fetch("/data/insights.json").then(r => r.json()).then(setInsights);
   }, []);
 
   return (

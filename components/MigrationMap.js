@@ -18,7 +18,7 @@ export default function MigrationMap({ routes }) {
           getTargetColor: d => colorMap[Math.min(d.risk, 3)],
           getWidth: d => d.risk >= 3 ? 6 : 2,
           pickable: true,
-          autoHighlight: true
+          autoHighlight: true,
         }),
       ]}
     >

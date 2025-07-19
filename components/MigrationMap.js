@@ -1,7 +1,7 @@
 import DeckGL from '@deck.gl/react';
 import { StaticMap } from 'react-map-gl';
 import { ArcLayer } from '@deck.gl/layers';
-// Optionally: import 'mapbox-gl/dist/mapbox-gl.css';
+// No mapbox-gl import here – only via deck.gl/react-map-gl peer dep
 
 export default function MigrationMap({ routes }) {
   const colorMap = [[255,85,79], [250,180,80], [44,123,229], [180,180,180]];
@@ -23,7 +23,7 @@ export default function MigrationMap({ routes }) {
         }),
       ]}
     >
-      <StaticMap mapboxApiAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN} mapStyle="mapbox://styles/mapbox/light-v10" />
+      <StaticMap mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN} mapStyle="mapbox://styles/mapbox/light-v10" />
     </DeckGL>
   );
 }

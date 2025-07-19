@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "pages/api/*.py", "use": "@vercel/python" },
+    { "src": "next.config.js", "use": "@vercel/next" }
+  ],
+  "routes": [
+    { "src": "/api/stats", "dest": "pages/api/stats.py" },
+    { "src": "/api/scenario", "dest": "pages/api/scenario.py" },
+    { "src": "/(.*)", "dest": "/" }
+  ]
+}

@@ -1,12 +1,10 @@
 import React from 'react';
 import styles from '../styles/Footer.module.css';
 
-const Footer = () => {
+export default function Footer() {
   return (
     <footer className={styles.footer}>
-      <p>© 2025 Bird Migration Dashboard. All rights reserved.</p>
+      &copy; {new Date().getFullYear()} Bird Migration Dashboard. All rights reserved.
     </footer>
   );
-};
-
-export default Footer;
+}

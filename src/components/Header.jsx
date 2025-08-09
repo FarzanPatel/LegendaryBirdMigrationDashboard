@@ -1,12 +1,10 @@
 import React from 'react';
 import styles from '../styles/Header.module.css';
 
-const Header = () => {
+export default function Header() {
   return (
     <header className={styles.header}>
-      <h1>Bird Migration Dashboard</h1>
+      Bird Migration Dashboard
     </header>
   );
-};
-
-export default Header;
+}

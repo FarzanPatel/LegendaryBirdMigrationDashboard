@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
-import Header from '../components/Header';
+import Layout from '../components/Layout';
+import BirdMigrationMap from '../components/BirdMigrationMap';
 import BirdList from '../components/BirdList';
-import BirdMigrationMap from '../components/BirdMigrationMap'; // updated import name
 import LoadingSpinner from '../components/LoadingSpinner';
 import Narration from '../components/Narration';
 
@@ -40,7 +40,6 @@ export default function Home() {
         setLoading(false);
       }
     }
-
     fetchData();
   }, []);
 
@@ -52,21 +51,20 @@ export default function Home() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <Header />
-
-      {loading ? (
-        <LoadingSpinner />
-      ) : (
-        <main className="main-container">
-          <BirdMigrationMap birdLocations={birds} />
-          <BirdList birds={birds} />
-
-          <Narration
-            script={narrationScript}
-            audioSrc="/audio/bird_migration_narration.mp3"
-          />
-        </main>
-      )}
+      <Layout>
+        {loading ? (
+          <LoadingSpinner />
+        ) : (
+          <>
+            <BirdMigrationMap birdLocations={birds} />
+            <BirdList birds={birds} />
+            <Narration
+              script={narrationScript}
+              audioSrc="/audio/bird_migration_narration.mp3"
+            />
+          </>
+        )}
+      </Layout>
     </>
   );
 }

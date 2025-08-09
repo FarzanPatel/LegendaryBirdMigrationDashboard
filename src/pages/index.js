@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Header from '../components/Header';
 import BirdList from '../components/BirdList';
-import MigrationMap from '../components/MigrationMap';
+import BirdMigrationMap from '../components/BirdMigrationMap'; // updated import name
 import LoadingSpinner from '../components/LoadingSpinner';
 import Narration from '../components/Narration';
 
@@ -57,15 +57,15 @@ export default function Home() {
       {loading ? (
         <LoadingSpinner />
       ) : (
-        <>
-          <MigrationMap birds={birds} />
+        <main className="main-container">
+          <BirdMigrationMap birdLocations={birds} />
           <BirdList birds={birds} />
 
           <Narration
             script={narrationScript}
             audioSrc="/audio/bird_migration_narration.mp3"
           />
-        </>
+        </main>
       )}
     </>
   );

@@ -1,0 +1,32 @@
+.navbar {
+  width: 100%;
+  background-color: #0070f3;
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 112, 243, 0.4);
+}
+
+.navLogo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.navLinks {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.navLink {
+  color: white;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity 0.3s ease;
+}
+
+.navLink:hover {
+  opacity: 0.8;
+}

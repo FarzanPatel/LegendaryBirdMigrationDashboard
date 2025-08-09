@@ -1,4 +1,5 @@
 import React from 'react';
+import BirdCard from './BirdCard';
 import styles from '../styles/BirdList.module.css';
 
 export default function BirdList({ birds }) {
@@ -9,12 +10,13 @@ export default function BirdList({ birds }) {
   return (
     <aside className={styles.birdList}>
       {birds.map(({ id, species, migration_reason, habitat, weather_condition }) => (
-        <div key={id} className={styles.birdListItem}>
-          <h3>{species}</h3>
-          <p><strong>Reason:</strong> {migration_reason}</p>
-          <p><strong>Habitat:</strong> {habitat}</p>
-          <p><strong>Weather:</strong> {weather_condition}</p>
-        </div>
+        <BirdCard
+          key={id}
+          species={species}
+          migration_reason={migration_reason}
+          habitat={habitat}
+          weather_condition={weather_condition}
+        />
       ))}
     </aside>
   );

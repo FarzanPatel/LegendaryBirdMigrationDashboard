@@ -26,7 +26,6 @@ export default function Home() {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null); // NE country name
 
   useEffect(() => {
-  // Regions
   fetch("/data/region_summaries.json")
     .then(r => r.json())
     .then((arr: any[]) => {
@@ -38,10 +37,24 @@ export default function Home() {
       setRegions(regionList);
 
       if (arr.length > 0 && arr[0]?.region) {
-        setSelectedRegion(arr.region);  // <-- correct: arr.region
+        // WRONG in your build: setSelectedRegion(arr.region)
+        setSelectedRegion(arr.region);  // <- use the first element
       }
     })
     .catch(() => {});
+    
+  fetch("/data/country_summaries.json")
+    .then(r => r.json())
+    .then((arr: any[]) => {
+      const byNE: Record<string, Summary> = {};
+      arr.forEach((d: any) => {
+        if (d?.ne_country_name) byNE[d.ne_country_name] = d;
+      });
+      setCountryData(byNE);
+    })
+    .catch(() => {});
+}, []);
+
 
   // Countries
   fetch("/data/country_summaries.json")

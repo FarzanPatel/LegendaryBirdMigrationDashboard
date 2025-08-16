@@ -26,48 +26,37 @@ export default function Home() {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null); // NE country name
 
   useEffect(() => {
-  fetch("/data/region_summaries.json")
-    .then(r => r.json())
-    .then((arr: any[]) => {
-      const byName: Record<string, Summary> = {};
-      arr.forEach(d => { if (d?.region) byName[d.region] = d; });
-      setRegionData(byName);
+    // Regions
+    fetch("/data/region_summaries.json")
+      .then((r) => r.json())
+      .then((arr: any[]) => {
+        const byName: Record<string, Summary> = {};
+        arr.forEach((d) => {
+          if (d?.region) byName[d.region] = d;
+        });
+        setRegionData(byName);
 
-      const regionList = arr.map(d => d.region).filter(Boolean);
-      setRegions(regionList);
+        const regionList = arr.map((d) => d.region).filter(Boolean);
+        setRegions(regionList);
 
-      if (arr.length > 0 && arr[0]?.region) {
-        // WRONG in your build: setSelectedRegion(arr.region)
-        setSelectedRegion(arr.region);  // <- use the first element
-      }
-    })
-    .catch(() => {});
-    
-  fetch("/data/country_summaries.json")
-    .then(r => r.json())
-    .then((arr: any[]) => {
-      const byNE: Record<string, Summary> = {};
-      arr.forEach((d: any) => {
-        if (d?.ne_country_name) byNE[d.ne_country_name] = d;
-      });
-      setCountryData(byNE);
-    })
-    .catch(() => {});
-}, []);
+        if (arr.length > 0 && arr[0]?.region) {
+          setSelectedRegion(arr.region);
+        }
+      })
+      .catch(() => {});
 
-
-  // Countries
-  fetch("/data/country_summaries.json")
-    .then(r => r.json())
-    .then((arr: any[]) => {
-      const byNE: Record<string, Summary> = {};
-      arr.forEach((d: any) => {
-        if (d?.ne_country_name) byNE[d.ne_country_name] = d;
-      });
-      setCountryData(byNE);
-    })
-    .catch(() => {});
-}, []);
+    // Countries
+    fetch("/data/country_summaries.json")
+      .then((r) => r.json())
+      .then((arr: any[]) => {
+        const byNE: Record<string, Summary> = {};
+        arr.forEach((d: any) => {
+          if (d?.ne_country_name) byNE[d.ne_country_name] = d;
+        });
+        setCountryData(byNE);
+      })
+      .catch(() => {});
+  }, []); // <-- ensure this closing bracket/paren/comma are exactly as shown
 
   // Reset to region view when region changes
   useEffect(() => {
@@ -93,7 +82,10 @@ export default function Home() {
         <div className="my-2">
           <button
             className="text-sm text-blue-600 hover:underline"
-            onClick={() => { setViewMode("region"); setSelectedCountry(null); }}
+            onClick={() => {
+              setViewMode("region");
+              setSelectedCountry(null);
+            }}
           >
             ← Back to {selectedRegion}
           </button>

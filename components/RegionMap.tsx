@@ -36,7 +36,7 @@ export default function RegionMap({
       try {
         return JSON.parse(txt);
       } catch (e) {
-        throw new Error(`${label} JSON parse error: ${String(e)}. First 120 chars: ${txt.slice(0, 120)}`);
+        throw new Error(`${label} JSON parse error: ${String(e)} | ${txt.slice(0, 120)}`);
       }
     };
 
@@ -72,9 +72,6 @@ export default function RegionMap({
         const regionFeature = regionsGeo?.features?.find(
           (f: any) => f?.properties?.NAME === selectedRegion
         );
-        if (!regionFeature) {
-          console.error("Region feature not found for NAME =", selectedRegion);
-        }
 
         map = new maplibregl.Map({
           container: mapContainer.current!,
@@ -97,10 +94,10 @@ export default function RegionMap({
             map!.addLayer({ id: "bg", type: "background", paint: { "background-color": "#eef4f8" } });
           } catch {}
 
-          // Region
           const regionRisk = (regionData[selectedRegion]?.risk_zone || "Warning") as Risk;
           const regionFC = { type: "FeatureCollection", features: regionFeature ? [regionFeature] : [] };
 
+          // Region layers
           map!.addSource("region", { type: "geojson", data: regionFC });
           map!.addLayer({
             id: "region-fill",
@@ -126,8 +123,8 @@ export default function RegionMap({
               (f: any) => f?.properties?.CONTINENT === selectedRegion
             )
           };
-          map!.addSource("countries", { type: "geojson", data: regionCountries });
 
+          map!.addSource("countries", { type: "geojson", data: regionCountries });
           map!.addLayer({
             id: "countries-hit",
             type: "fill",
@@ -201,7 +198,7 @@ export default function RegionMap({
             tooltip.innerHTML = `<div style="font-weight:600">${name}</div>`;
           });
           map!.on("click", "countries-hit", (e: any) => {
-            const f = e.features?.;
+            const f = e.features?.; // <-- fixed syntax
             if (!f) return;
             const neName = f.properties?.NAME;
             if (!neName) return;

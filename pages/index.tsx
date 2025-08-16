@@ -41,7 +41,7 @@ export default function Home() {
 
     // Set default to the first region in the list
     if (arr.length > 0 && arr[0]?.region) {
-      setSelectedRegion(arr.region);  // <- correct: use arr.region
+      setSelectedRegion(arr[0].region); 
     }
   })
   .catch(() => {});

@@ -26,31 +26,35 @@ export default function Home() {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null); // NE country name
 
   useEffect(() => {
-    // Regions
-    fetch("/data/region_summaries.json")
-      .then(r => r.json())
-      .then((arr: any[]) => {
-        const byName: Record<string, Summary> = {};
-        arr.forEach(d => { if (d?.region) byName[d.region] = d; });
-        setRegionData(byName);
-        setRegions(arr.map(d => d.region).filter(Boolean));
-        if (arr.length > 0 && arr[0]?.region) {
-          setSelectedRegion(arr.region);
-        }
-      })
-      .catch(() => {});
-    // Countries
-    fetch("/data/country_summaries.json")
-      .then(r => r.json())
-      .then((arr: any[]) => {
-        const byNE: Record<string, Summary> = {};
-        arr.forEach((d: any) => {
-          if (d?.ne_country_name) byNE[d.ne_country_name] = d;
-        });
-        setCountryData(byNE);
-      })
-      .catch(() => {});
-  }, []);
+  // Regions
+  fetch("/data/region_summaries.json")
+    .then(r => r.json())
+    .then((arr: any[]) => {
+      const byName: Record<string, Summary> = {};
+      arr.forEach(d => { if (d?.region) byName[d.region] = d; });
+      setRegionData(byName);
+
+      const regionList = arr.map(d => d.region).filter(Boolean);
+      setRegions(regionList);
+
+      if (arr.length > 0 && arr[0]?.region) {
+        setSelectedRegion(arr.region);  // <-- correct: arr.region
+      }
+    })
+    .catch(() => {});
+
+  // Countries
+  fetch("/data/country_summaries.json")
+    .then(r => r.json())
+    .then((arr: any[]) => {
+      const byNE: Record<string, Summary> = {};
+      arr.forEach((d: any) => {
+        if (d?.ne_country_name) byNE[d.ne_country_name] = d;
+      });
+      setCountryData(byNE);
+    })
+    .catch(() => {});
+}, []);
 
   // Reset to region view when region changes
   useEffect(() => {

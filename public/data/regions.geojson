@@ -1,74 +1,121 @@
-{
-  "type": "FeatureCollection",
-  "features": [
-    {
-      "type": "Feature",
-      "properties": { "NAME": "Africa" },
-      "geometry": {
-        "type": "MultiPolygon",
-        "coordinates": [
-          [[[31.28789,-30.54573],[32.07167,-29.34155],[32.83012,-28.30174],[32.58026,-27.47016],[31.521,-25.84333],[31.32556,-25.84389],[31.19178,-25.73145],[31.04533,-25.73112],[30.94982,-26.02265],[30.67661,-26.39808],[30.68596,-26.74385],[31.28278,-27.28556],[31.86833,-27.30944],[31.91222,-27.43528],[31.98563,-27.32142],[32.83012,-28.30174],[32.84506,-28.64807],[33.01275,-29.34155],[32.574,-29.87954],[31.28789,-30.54573]]],
-          [[[43.25145,4.9843],[43.08123,4.31262],[42.12861,3.57543],[41.85508,3.91891],[41.1718,3.91909],[40.76848,4.25702],[40.47839,4.25702],[39.85494,3.83879],[39.53574,3.42206],[39.0994,3.42206],[38.62005,3.5986],[38.435,3.58851],[38.12091,3.5986],[37.90607,3.44701],[37.7669,3.40635],[37.46154,3.40807],[37.235,3.26331],[36.83406,3.34994],[36.44819,3.56109],[36.30967,3.59075],[36.125,3.51305],[35.83333,3.71389],[35.71611,3.90083],[35.38333,4.36694],[35.14444,4.87611],[35.08778,5.13083],[34.99611,5.28389],[34.77306,5.50611],[34.60389,5.64861],[34.52694,5.78472],[34.42194,6.10917],[34.11306,6.42472],[34.09389,6.59806],[34.21972,6.91611],[34.225,7.27611],[34.29389,7.42417],[34.34444,7.85528],[34.42111,8.03528],[34.55639,8.15306],[34.74972,8.2325],[34.92361,8.27278],[35.31583,8.33139],[35.57917,8.37417],[35.85472,8.3975],[36.10667,8.38778],[36.48694,8.38972],[36.7675,8.40778],[37.05972,8.44278],[37.33722,8.4975],[37.60083,8.55],[37.79333,8.57917],[38.02806,8.61028],[38.2125,8.6175],[38.46861,8.61889],[38.66944,8.58222],[38.86472,8.55361],[39.03583,8.51056],[39.19222,8.46333],[39.34194,8.40056],[39.51861,8.31278],[39.68694,8.20083],[39.83917,8.06639],[39.97139,7.91472],[40.07583,7.76278],[40.19028,7.57306],[40.27778,7.40417],[40.33333,7.25583],[40.39194,7.06528],[40.46028,6.86056],[40.57833,6.58444],[40.6825,6.35806],[40.82,6.18861],[40.955,6.05722],[41.08722,5.94639],[41.18917,5.84778],[41.31722,5.73278],[41.52528,5.56361],[41.69472,5.46028],[41.83111,5.40972],[42.02,5.3475],[42.16944,5.28917],[42.31889,5.2425],[42.50611,5.21222],[42.66722,5.19222],[42.88139,5.16361],[43.07139,5.10917],[43.20194,5.05028],[43.25145,4.9843]]],
-          [[[ -17.625,14.73],[-17.024,14.919],[-16.713,15.623],[-16.120,16.135],[-15.623,16.369],[-15.222,16.598],[-14.921,16.706],[-14.777,16.799],[-14.6,16.83],[-14.273,16.706],[-13.889,16.682],[-13.7,16.39],[-13.436,16.035],[-13.153,15.301],[-13.278,14.915],[-13.51,14.845],[-13.7,14.444],[-14.1,14.003],[-14.577,13.67],[-15.135,13.278],[-15.724,13.27],[-16.146,13.36],[-16.506,13.45],[-16.8,13.61],[-17.062,13.7],[-17.416,13.72],[-17.625,14.73]]]
-        ]
+import { useEffect, useState } from "react";
+import RegionMap from "../components/RegionMap";
+import RegionDropdown from "../components/RegionDropdown";
+import LegendBar from "../components/LegendBar";
+import InfoPanel from "../components/InfoPanel";
+
+type Summary = {
+  region?: string;
+  country?: string;
+  risk_zone: "Green" | "Warning" | "Red";
+  safe_build_height_m: number | null;
+  safe_flight_floor_m: number | null;
+  best_months: number[];
+  migration_density: number;
+  monthly_density: number[];
+  ne_country_name?: string;
+};
+
+export default function Home() {
+  const [regionData, setRegionData] = useState<Record<string, Summary>>({});
+  const [countryData, setCountryData] = useState<Record<string, Summary>>({});
+  const [regions, setRegions] = useState<string[]>([]);
+  const [selectedRegion, setSelectedRegion] = useState<string>("");
+
+  const [viewMode, setViewMode] = useState<"region" | "country">("region");
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        // Regions
+        const r1 = await fetch("/data/region_summaries.json");
+        const regionArr: any[] = await r1.json();
+        const regionByName: Record<string, Summary> = {};
+        regionArr.forEach((d) => {
+          if (d?.region) regionByName[d.region] = d;
+        });
+        setRegionData(regionByName);
+
+        const regionList = regionArr.map((d) => d.region).filter(Boolean);
+        setRegions(regionList as string[]);
+        if (!selectedRegion && regionList.length > 0) {
+          setSelectedRegion(regionList[0] as string); // <- NO arr.region anywhere
+        }
+
+        // Countries
+        const r2 = await fetch("/data/country_summaries.json");
+        const countryArr: any[] = await r2.json();
+        const byNE: Record<string, Summary> = {};
+        countryArr.forEach((d: any) => {
+          if (d?.ne_country_name) byNE[d.ne_country_name] = d;
+        });
+        setCountryData(byNE);
+      } catch {
+        // ignore
       }
-    },
-    {
-      "type": "Feature",
-      "properties": { "NAME": "Antarctica" },
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[-180,-85],[180,-85],[180,-60],[-180,-60],[-180,-85]]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": { "NAME": "Asia" },
-      "geometry": {
-        "type": "MultiPolygon",
-        "coordinates": [
-          [[[26.0,41.2],[44.8,41.8],[55.0,37.0],[65.7,37.5],[76.0,40.0],[86.0,45.0],[98.0,45.0],[110.0,43.0],[120.0,40.0],[130.0,45.0],[140.0,50.0],[150.0,55.0],[160.0,60.0],[170.0,60.0],[180.0,60.0],[180.0,0.0],[60.0,0.0],[45.0,15.0],[35.0,25.0],[26.0,41.2]]],
-          [[[95.0,5.0],[105.0,5.0],[110.0,-5.0],[120.0,-10.0],[130.0,-5.0],[140.0,0.0],[140.0,10.0],[125.0,15.0],[110.0,10.0],[100.0,10.0],[95.0,5.0]]]
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": { "NAME": "Europe" },
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[ -10.5,35.0],[40.0,35.0],[45.0,45.0],[30.0,60.0],[15.0,65.0],[5.0,62.0],[-10.5,55.0],[-10.5,35.0]]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": { "NAME": "North America" },
-      "geometry": {
-        "type": "MultiPolygon",
-        "coordinates": [
-          [[[-168.0,52.0],[-140.0,55.0],[-125.0,50.0],[-110.0,45.0],[-100.0,40.0],[-95.0,30.0],[-85.0,25.0],[-80.0,20.0],[-75.0,18.0],[-70.0,20.0],[-65.0,25.0],[-60.0,30.0],[-60.0,45.0],[-75.0,50.0],[-90.0,55.0],[-105.0,60.0],[-120.0,62.0],[-140.0,65.0],[-155.0,62.0],[-168.0,52.0]]],
-          [[[-85.0,21.0],[-80.0,24.0],[-75.0,20.0],[-80.0,18.0],[-85.0,21.0]]]
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": { "NAME": "Oceania" },
-      "geometry": {
-        "type": "MultiPolygon",
-        "coordinates": [
-          [[[112.0,-44.0],[154.0,-44.0],[154.0,-10.0],[112.0,-10.0],[112.0,-44.0]]],
-          [[[165.0,-22.0],[175.0,-22.0],[175.0,-34.0],[165.0,-34.0],[165.0,-22.0]]]
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": { "NAME": "South America" },
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[-81.0,-55.0],[-35.0,-55.0],[-35.0,12.0],[-81.0,12.0],[-81.0,-55.0]]]
-      }
-    }
-  ]
+    };
+    load();
+  }, []); // end useEffect
+
+  useEffect(() => {
+    setViewMode("region");
+    setSelectedCountry(null);
+  }, [selectedRegion]);
+
+  const currentInfo: Summary | null =
+    viewMode === "country" && selectedCountry && countryData[selectedCountry]
+      ? countryData[selectedCountry]
+      : selectedRegion
+      ? regionData[selectedRegion] || null
+      : null;
+
+  return (
+    <main className="max-w-5xl mx-auto p-8">
+      <h1 className="text-4xl font-bold mb-2">Legendary Bird Migration Dashboard</h1>
+      <div className="text-lg mb-2 text-gray-500">
+        Pick a region to view migration impacts, then click a country to drill down. 🌍
+      </div>
+
+      <LegendBar />
+
+      <RegionDropdown
+        regions={regions}
+        selected={selectedRegion || ""}
+        onChange={(val) => setSelectedRegion(val)}
+      />
+
+      {viewMode === "country" && selectedCountry && (
+        <div className="my-2">
+          <button
+            className="text-sm text-blue-600 hover:underline"
+            onClick={() => {
+              setViewMode("region");
+              setSelectedCountry(null);
+            }}
+          >
+            ← Back to {selectedRegion}
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-col md:flex-row gap-8 mt-2">
+        <div className="flex-1">
+          <RegionMap
+            selectedRegion={selectedRegion || regions[0] || "Africa"}
+            regionData={regionData}
+            viewMode={viewMode}
+            selectedCountry={selectedCountry}
+            onCountrySelect={(neName) => {
+              setSelectedCountry(neName);
+              setViewMode("country");
+            }}
+          />
+        </div>
+        <div className="flex-1">
+          <InfoPanel data={currentInfo} />
+        </div>
+      </div>
+    </main>
+  );
 }

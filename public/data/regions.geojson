@@ -1,121 +1,82 @@
-import { useEffect, useState } from "react";
-import RegionMap from "../components/RegionMap";
-import RegionDropdown from "../components/RegionDropdown";
-import LegendBar from "../components/LegendBar";
-import InfoPanel from "../components/InfoPanel";
-
-type Summary = {
-  region?: string;
-  country?: string;
-  risk_zone: "Green" | "Warning" | "Red";
-  safe_build_height_m: number | null;
-  safe_flight_floor_m: number | null;
-  best_months: number[];
-  migration_density: number;
-  monthly_density: number[];
-  ne_country_name?: string;
-};
-
-export default function Home() {
-  const [regionData, setRegionData] = useState<Record<string, Summary>>({});
-  const [countryData, setCountryData] = useState<Record<string, Summary>>({});
-  const [regions, setRegions] = useState<string[]>([]);
-  const [selectedRegion, setSelectedRegion] = useState<string>("");
-
-  const [viewMode, setViewMode] = useState<"region" | "country">("region");
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        // Regions
-        const r1 = await fetch("/data/region_summaries.json");
-        const regionArr: any[] = await r1.json();
-        const regionByName: Record<string, Summary> = {};
-        regionArr.forEach((d) => {
-          if (d?.region) regionByName[d.region] = d;
-        });
-        setRegionData(regionByName);
-
-        const regionList = regionArr.map((d) => d.region).filter(Boolean);
-        setRegions(regionList as string[]);
-        if (!selectedRegion && regionList.length > 0) {
-          setSelectedRegion(regionList[0] as string); // <- NO arr.region anywhere
-        }
-
-        // Countries
-        const r2 = await fetch("/data/country_summaries.json");
-        const countryArr: any[] = await r2.json();
-        const byNE: Record<string, Summary> = {};
-        countryArr.forEach((d: any) => {
-          if (d?.ne_country_name) byNE[d.ne_country_name] = d;
-        });
-        setCountryData(byNE);
-      } catch {
-        // ignore
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "NAME": "Africa" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-17.625,14.73],[-17.0,20.0],[-7.0,20.0],[0.0,23.0],[10.0,24.0],[15.0,20.0],
+          [20.0,21.0],[25.0,30.0],[34.0,30.0],[37.0,24.0],[43.0,12.0],[51.0,12.0],
+          [51.0,2.0],[40.0,-2.0],[36.0,-11.0],[31.0,-18.0],[28.0,-23.0],[20.0,-34.0],
+          [14.0,-35.0],[10.0,-30.0],[2.0,-23.0],[-5.0,-20.0],[-12.0,-18.0],[-17.0,-14.0],
+          [-17.5,0.0],[-17.625,14.73]
+        ]]
       }
-    };
-    load();
-  }, []); // end useEffect
-
-  useEffect(() => {
-    setViewMode("region");
-    setSelectedCountry(null);
-  }, [selectedRegion]);
-
-  const currentInfo: Summary | null =
-    viewMode === "country" && selectedCountry && countryData[selectedCountry]
-      ? countryData[selectedCountry]
-      : selectedRegion
-      ? regionData[selectedRegion] || null
-      : null;
-
-  return (
-    <main className="max-w-5xl mx-auto p-8">
-      <h1 className="text-4xl font-bold mb-2">Legendary Bird Migration Dashboard</h1>
-      <div className="text-lg mb-2 text-gray-500">
-        Pick a region to view migration impacts, then click a country to drill down. 🌍
-      </div>
-
-      <LegendBar />
-
-      <RegionDropdown
-        regions={regions}
-        selected={selectedRegion || ""}
-        onChange={(val) => setSelectedRegion(val)}
-      />
-
-      {viewMode === "country" && selectedCountry && (
-        <div className="my-2">
-          <button
-            className="text-sm text-blue-600 hover:underline"
-            onClick={() => {
-              setViewMode("region");
-              setSelectedCountry(null);
-            }}
-          >
-            ← Back to {selectedRegion}
-          </button>
-        </div>
-      )}
-
-      <div className="flex flex-col md:flex-row gap-8 mt-2">
-        <div className="flex-1">
-          <RegionMap
-            selectedRegion={selectedRegion || regions[0] || "Africa"}
-            regionData={regionData}
-            viewMode={viewMode}
-            selectedCountry={selectedCountry}
-            onCountrySelect={(neName) => {
-              setSelectedCountry(neName);
-              setViewMode("country");
-            }}
-          />
-        </div>
-        <div className="flex-1">
-          <InfoPanel data={currentInfo} />
-        </div>
-      </div>
-    </main>
-  );
+    },
+    {
+      "type": "Feature",
+      "properties": { "NAME": "Antarctica" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-180.0,-60.0],[180.0,-60.0],[180.0,-90.0],[-180.0,-90.0],[-180.0,-60.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "NAME": "Asia" },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [[[26.0,41.2],[40.0,35.0],[55.0,37.0],[70.0,38.0],[90.0,45.0],[110.0,43.0],[125.0,40.0],[140.0,50.0],[160.0,60.0],[180.0,60.0],[180.0,0.0],[60.0,0.0],[45.0,15.0],[35.0,25.0],[26.0,41.2]]],
+          [[[95.0,5.0],[110.0,10.0],[120.0,0.0],[130.0,-5.0],[140.0,0.0],[140.0,10.0],[125.0,15.0],[110.0,10.0],[100.0,10.0],[95.0,5.0]]]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "NAME": "Europe" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-10.5,35.0],[30.0,35.0],[35.0,45.0],[25.0,60.0],[10.0,65.0],[-5.0,60.0],[-10.5,55.0],[-10.5,35.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "NAME": "North America" },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [[[-168.0,52.0],[-140.0,55.0],[-120.0,50.0],[-105.0,45.0],[-95.0,35.0],[-85.0,25.0],[-80.0,20.0],[-70.0,20.0],[-60.0,30.0],[-60.0,45.0],[-75.0,55.0],[-120.0,62.0],[-140.0,65.0],[-168.0,52.0]]],
+          [[[-85.0,21.0],[-80.0,24.0],[-75.0,20.0],[-80.0,18.0],[-85.0,21.0]]]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "NAME": "Oceania" },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [[[112.0,-44.0],[154.0,-44.0],[154.0,-10.0],[112.0,-10.0],[112.0,-44.0]]],
+          [[[165.0,-22.0],[175.0,-22.0],[175.0,-34.0],[165.0,-34.0],[165.0,-22.0]]]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "NAME": "South America" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-81.0,-55.0],[-35.0,-55.0],[-35.0,12.0],[-81.0,12.0],[-81.0,-55.0]
+        ]]
+      }
+    }
+  ]
 }

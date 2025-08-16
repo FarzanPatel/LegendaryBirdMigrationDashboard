@@ -28,23 +28,24 @@ export default function Home() {
   useEffect(() => {
     // Regions
     fetch("/data/region_summaries.json")
-      .then((r) => r.json())
-      .then((arr: any[]) => {
-        const byName: Record<string, Summary> = {};
-        arr.forEach((d) => {
-          if (d?.region) byName[d.region] = d;
-        });
-        setRegionData(byName);
+  .then((r) => r.json())
+  .then((arr: any[]) => {
+    const byName: Record<string, Summary> = {};
+    arr.forEach((d) => {
+      if (d?.region) byName[d.region] = d;
+    });
+    setRegionData(byName);
 
-        const regionList = arr.map((d) => d.region).filter(Boolean);
-        setRegions(regionList);
+    const regionList = arr.map((d) => d.region).filter(Boolean);
+    setRegions(regionList);
 
-        if (arr.length > 0 && arr[0]?.region) {
-          setSelectedRegion(arr.region);
-        }
-      })
-      .catch(() => {});
-
+    // Set default to the first region in the list
+    if (arr.length > 0 && arr[0]?.region) {
+      setSelectedRegion(arr.region);  // <- correct: use arr.region
+    }
+  })
+  .catch(() => {});
+    
     // Countries
     fetch("/data/country_summaries.json")
       .then((r) => r.json())

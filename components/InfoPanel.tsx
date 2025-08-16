@@ -1,26 +1,34 @@
 export default function InfoPanel({ data }: { data: any }) {
   if (!data) return null;
 
-  // Helper to show best months as names
   const getMonthNames = (monthNums: number[] = []) =>
     monthNums
       .map(m => ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m-1])
       .join(", ");
 
+  const title = data.country ? data.country : data.region;
+
   return (
     <div className="bg-white shadow-xl rounded-2xl p-6 min-w-[320px]">
       <div className="flex items-center gap-4 mb-2">
-        <span className="text-xl font-semibold">{data.region}</span>
-        <span className="rounded px-3 py-1 text-white text-base"
+        <span className="text-xl font-semibold">{title}</span>
+        <span
+          className="rounded px-3 py-1 text-white text-base"
           style={{
-            background: data.risk_zone === "Green" ? "#22c55e" : data.risk_zone === "Warning" ? "#fbbf24" : "#ef4444"
-          }}>{data.risk_zone}</span>
+            background:
+              data.risk_zone === "Green" ? "#22c55e" :
+              data.risk_zone === "Warning" ? "#fbbf24" : "#ef4444"
+          }}
+        >
+          {data.risk_zone}
+        </span>
       </div>
       <div className="mb-3 text-sm leading-relaxed">
-        <b>Safe Building Height:</b> {data.safe_build_height_m} m<br />
-        <b>Safe Flight Floor:</b> {data.safe_flight_floor_m} m<br />
+        {data.country && data.region && (<div><b>Region:</b> {data.region}</div>)}
+        <b>Safe Building Height:</b> {data.safe_build_height_m ?? "—"} m<br />
+        <b>Safe Flight Floor:</b> {data.safe_flight_floor_m ?? "—"} m<br />
         <b>Best Construction Months:</b> {getMonthNames(data.best_months)}<br />
-        <b>Migration Density:</b> {data.migration_density}
+        <b>Migration Density:</b> {data.migration_density ?? 0}
       </div>
       <div>
         <div className="text-sm mb-1">Seasonality</div>
@@ -32,11 +40,11 @@ export default function InfoPanel({ data }: { data: any }) {
               background: data.best_months?.includes(i + 1) ? "#22c55e" : "#d1d5db",
               borderRadius: 2,
               transition: "background 0.3s"
-            }}></div>
+            }} />
           ))}
         </div>
         <div className="grid grid-cols-12 text-xs text-gray-500">
-          {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map(m => (
+          {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map(m => (
             <span key={m} className="text-center">{m}</span>
           ))}
         </div>

@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom overrides, add anything below Tailwind imports */
+body {
+  font-family: Inter, Arial, Helvetica, sans-serif;
+  background: #f8fafc;
+}
+h1 {
+  font-family: inherit;
+}

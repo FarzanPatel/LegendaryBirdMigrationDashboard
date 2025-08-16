@@ -1,0 +1,177 @@
+[
+  {
+    "region": "Africa",
+    "risk_zone": "Red",
+    "safe_build_height_m": 187,
+    "safe_flight_floor_m": 9150,
+    "migration_density": 1413,
+    "best_months": [
+      7,
+      8
+    ],
+    "monthly_density": [
+      585,
+      750,
+      926,
+      884,
+      894,
+      688,
+      503,
+      503,
+      674,
+      849,
+      805,
+      601
+    ]
+  },
+  {
+    "region": "Antarctica",
+    "risk_zone": "Warning",
+    "safe_build_height_m": 194,
+    "safe_flight_floor_m": 9344,
+    "migration_density": 712,
+    "best_months": [
+      7,
+      8
+    ],
+    "monthly_density": [
+      290,
+      378,
+      485,
+      487,
+      450,
+      361,
+      259,
+      259,
+      332,
+      433,
+      394,
+      296
+    ]
+  },
+  {
+    "region": "Asia",
+    "risk_zone": "Red",
+    "safe_build_height_m": 177,
+    "safe_flight_floor_m": 9121,
+    "migration_density": 1014,
+    "best_months": [
+      7,
+      8
+    ],
+    "monthly_density": [
+      414,
+      538,
+      669,
+      649,
+      633,
+      503,
+      346,
+      346,
+      457,
+      590,
+      575,
+      437
+    ]
+  },
+  {
+    "region": "Europe",
+    "risk_zone": "Red",
+    "safe_build_height_m": 179,
+    "safe_flight_floor_m": 9050,
+    "migration_density": 1622,
+    "best_months": [
+      7,
+      8
+    ],
+    "monthly_density": [
+      681,
+      899,
+      1098,
+      1037,
+      1018,
+      771,
+      547,
+      547,
+      745,
+      938,
+      953,
+      704
+    ]
+  },
+  {
+    "region": "North America",
+    "risk_zone": "Red",
+    "safe_build_height_m": 182,
+    "safe_flight_floor_m": 9045,
+    "migration_density": 1719,
+    "best_months": [
+      7,
+      8
+    ],
+    "monthly_density": [
+      701,
+      916,
+      1130,
+      1123,
+      1089,
+      835,
+      589,
+      589,
+      816,
+      1019,
+      1006,
+      752
+    ]
+  },
+  {
+    "region": "Oceania",
+    "risk_zone": "Red",
+    "safe_build_height_m": 188,
+    "safe_flight_floor_m": 9084,
+    "migration_density": 1944,
+    "best_months": [
+      7,
+      8
+    ],
+    "monthly_density": [
+      787,
+      1023,
+      1292,
+      1216,
+      1174,
+      926,
+      660,
+      660,
+      878,
+      1131,
+      1124,
+      819
+    ]
+  },
+  {
+    "region": "South America",
+    "risk_zone": "Red",
+    "safe_build_height_m": 174,
+    "safe_flight_floor_m": 9052,
+    "migration_density": 1576,
+    "best_months": [
+      7,
+      8
+    ],
+    "monthly_density": [
+      656,
+      862,
+      1063,
+      1040,
+      956,
+      746,
+      518,
+      518,
+      709,
+      913,
+      896,
+      670
+    ]
+  }
+]

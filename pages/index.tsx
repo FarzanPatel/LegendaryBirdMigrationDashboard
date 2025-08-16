@@ -31,10 +31,12 @@ export default function Home() {
       .then(r => r.json())
       .then((arr: any[]) => {
         const byName: Record<string, Summary> = {};
-        arr.forEach(d => { byName[d.region] = d; });
+        arr.forEach(d => { if (d?.region) byName[d.region] = d; });
         setRegionData(byName);
-        setRegions(arr.map(d => d.region));
-        if (arr[0]?.region) setSelectedRegion(arr.region);
+        setRegions(arr.map(d => d.region).filter(Boolean));
+        if (arr.length > 0 && arr[0]?.region) {
+          setSelectedRegion(arr.region);
+        }
       })
       .catch(() => {});
     // Countries
@@ -43,7 +45,7 @@ export default function Home() {
       .then((arr: any[]) => {
         const byNE: Record<string, Summary> = {};
         arr.forEach((d: any) => {
-          if (d.ne_country_name) byNE[d.ne_country_name] = d;
+          if (d?.ne_country_name) byNE[d.ne_country_name] = d;
         });
         setCountryData(byNE);
       })

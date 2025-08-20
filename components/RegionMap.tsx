@@ -120,8 +120,18 @@ export default function RegionMap({
 
         map.on("load", () => {
           // Extra safety: ensure no terrain or expensive collisions
-          try { (map as any).painter?.terrain = null; } catch {}
-          try { (map as any).setCollisionBehavior?.({ split: false }); } catch {}
+          try {
+            const painter = (map as any).painter;
+            if (painter && "terrain" in painter) {
+              painter.terrain = null as any;
+            }
+          } catch {}
+          try {
+            const setCollisionBehavior = (map as any).setCollisionBehavior;
+            if (typeof setCollisionBehavior === "function") {
+              setCollisionBehavior({ split: false });
+            }
+          } catch {}
 
           // Background fallback (in case basemap style hiccups)
           try {
@@ -232,7 +242,7 @@ export default function RegionMap({
             tooltip.innerHTML = `<div style="font-weight:600">${name}</div>`;
           });
           map!.on("click", "countries-hit", (e: any) => {
-            const f = e.features?.[0]; // corrected syntax
+            const f = e.features?.;
             if (!f) return;
             const neName = f.properties?.NAME;
             if (!neName) return;

@@ -1,3 +1,4 @@
+// pages/index.tsx
 import { useEffect, useState } from "react";
 import RegionMap from "../components/RegionMap";
 import RegionDropdown from "../components/RegionDropdown";
@@ -20,44 +21,41 @@ export default function Home() {
   const [regionData, setRegionData] = useState<Record<string, Summary>>({});
   const [countryData, setCountryData] = useState<Record<string, Summary>>({});
   const [regions, setRegions] = useState<string[]>([]);
-  const [selectedRegion, setSelectedRegion] = useState<string>("Africa");
+  const [selectedRegion, setSelectedRegion] = useState<string>("");
 
   const [viewMode, setViewMode] = useState<"region" | "country">("region");
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null); // NE country name
 
   useEffect(() => {
-    // Regions
-    fetch("/data/region_summaries.json")
-  .then((r) => r.json())
-  .then((arr: any[]) => {
-    const byName: Record<string, Summary> = {};
-    arr.forEach((d) => {
-      if (d?.region) byName[d.region] = d;
-    });
-    setRegionData(byName);
+    const load = async () => {
+      try {
+        // Regions
+        const r1 = await fetch("/data/region_summaries.json");
+        const regionArr: any[] = await r1.json();
+        const byName: Record<string, Summary> = {};
+        regionArr.forEach((d) => { if (d?.region) byName[d.region] = d; });
+        setRegionData(byName);
 
-    const regionList = arr.map((d) => d.region).filter(Boolean);
-    setRegions(regionList);
+        const regionList = regionArr.map((d) => d.region).filter(Boolean);
+        setRegions(regionList as string[]);
+        if (!selectedRegion && regionList.length > 0) {
+          setSelectedRegion(regionList[0] as string);
+        }
 
-    // Set default to the first region in the list
-    if (arr.length > 0 && arr[0]?.region) {
-      setSelectedRegion(arr[0].region); 
-    }
-  })
-  .catch(() => {});
-    
-    // Countries
-    fetch("/data/country_summaries.json")
-      .then((r) => r.json())
-      .then((arr: any[]) => {
+        // Countries
+        const r2 = await fetch("/data/country_summaries.json");
+        const countryArr: any[] = await r2.json();
         const byNE: Record<string, Summary> = {};
-        arr.forEach((d: any) => {
+        countryArr.forEach((d: any) => {
           if (d?.ne_country_name) byNE[d.ne_country_name] = d;
         });
         setCountryData(byNE);
-      })
-      .catch(() => {});
-  }, []); // <-- ensure this closing bracket/paren/comma are exactly as shown
+      } catch {
+        // ignore network errors for now
+      }
+    };
+    load();
+  }, []); // end useEffect
 
   // Reset to region view when region changes
   useEffect(() => {
@@ -68,16 +66,26 @@ export default function Home() {
   const currentInfo: Summary | null =
     viewMode === "country" && selectedCountry && countryData[selectedCountry]
       ? countryData[selectedCountry]
-      : regionData[selectedRegion] || null;
+      : selectedRegion
+      ? regionData[selectedRegion] || null
+      : null;
 
   return (
-    <main className="max-w-5xl mx-auto p-8">
+    <main className="max-w-6xl md:max-w-7xl mx-auto p-6 md:p-8">
       <h1 className="text-4xl font-bold mb-2">Legendary Bird Migration Dashboard</h1>
-      <div className="text-lg mb-2 text-gray-500">
+      <div className="text-lg mb-3 text-gray-500">
         Pick a region to view migration impacts, then click a country to drill down. 🌍
       </div>
+
       <LegendBar />
-      <RegionDropdown regions={regions} selected={selectedRegion} onChange={setSelectedRegion} />
+
+      <div className="mt-2 mb-3">
+        <RegionDropdown
+          regions={regions}
+          selected={selectedRegion || ""}
+          onChange={(val) => setSelectedRegion(val)}
+        />
+      </div>
 
       {viewMode === "country" && selectedCountry && (
         <div className="my-2">
@@ -93,10 +101,11 @@ export default function Home() {
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row gap-8 mt-2">
-        <div className="flex-1">
+      {/* Layout: RegionMap larger, InfoPanel narrower, side-by-side */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-2 items-start">
+        <div className="lg:col-span-3">
           <RegionMap
-            selectedRegion={selectedRegion}
+            selectedRegion={selectedRegion || regions[0] || "Africa"}
             regionData={regionData}
             viewMode={viewMode}
             selectedCountry={selectedCountry}
@@ -106,7 +115,8 @@ export default function Home() {
             }}
           />
         </div>
-        <div className="flex-1">
+
+        <div className="lg:col-span-2">
           <InfoPanel data={currentInfo} />
         </div>
       </div>

@@ -1,8 +1,6 @@
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 
-// Stable, lightweight basemap. You can switch to Positron if preferred:
-// const MAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
 
 const REGION_COLORS: Record<string, string> = {
@@ -32,6 +30,7 @@ export default function RegionMap({
     if (!mapContainer.current) return;
 
     let map: maplibregl.Map | null = null;
+    let lastClickTime = 0;
 
     const fetchJson = async (url: string, label: string) => {
       const res = await fetch(url);
@@ -77,7 +76,6 @@ export default function RegionMap({
           (f: any) => f?.properties?.NAME === selectedRegion
         );
 
-        // Map constructor WITHOUT contextCreationOptions (fixes TS error)
         map = new maplibregl.Map({
           container: mapContainer.current!,
           style: MAP_STYLE,
@@ -89,30 +87,23 @@ export default function RegionMap({
         });
 
         map.setMaxBounds([[-180, -85], [180, 85]]);
-        try {
-          (map as any).style?.setTransition?.({ duration: 0, delay: 0 });
-        } catch {}
 
-        // WebGL context loss/restore handlers
         map.getCanvas().addEventListener("webglcontextlost", (e: any) => {
           e.preventDefault();
-          // eslint-disable-next-line no-console
           console.warn("WebGL context lost");
         });
+
         map.getCanvas().addEventListener("webglcontextrestored", () => {
-          // eslint-disable-next-line no-console
           console.warn("WebGL context restored");
           try { map!.resize(); } catch {}
         });
 
         map.on("load", () => {
-          // Guard internal toggles safely
           try {
             const painter = (map as any).painter;
-            if (painter && "terrain" in painter) {
-              painter.terrain = null as any;
-            }
+            if (painter && "terrain" in painter) painter.terrain = null;
           } catch {}
+
           try {
             const setCollisionBehavior = (map as any).setCollisionBehavior;
             if (typeof setCollisionBehavior === "function") {
@@ -120,7 +111,6 @@ export default function RegionMap({
             }
           } catch {}
 
-          // Background fallback
           try {
             map!.addLayer({ id: "bg", type: "background", paint: { "background-color": "#eef4f8" } });
           } catch {}
@@ -128,7 +118,6 @@ export default function RegionMap({
           const regionRisk = (regionData[selectedRegion]?.risk_zone || "Warning") as Risk;
           const regionFC = { type: "FeatureCollection", features: regionFeature ? [regionFeature] : [] };
 
-          // Region layers
           map!.addSource("region", { type: "geojson", data: regionFC });
           map!.addLayer({
             id: "region-fill",
@@ -147,7 +136,6 @@ export default function RegionMap({
             paint: { "line-color": "#1f2937", "line-width": 2.2, "line-dasharray": [4, 3] }
           });
 
-          // Countries limited to selected region
           const regionCountries = {
             type: "FeatureCollection",
             features: (countriesGeo?.features || []).filter(
@@ -177,7 +165,6 @@ export default function RegionMap({
             paint: { "line-color": "#111827", "line-width": 2 }
           });
 
-          // Tooltip
           const tooltip = document.createElement("div");
           Object.assign(tooltip.style, {
             position: "absolute",
@@ -194,7 +181,6 @@ export default function RegionMap({
           } as CSSStyleDeclaration);
           mapContainer.current!.appendChild(tooltip);
 
-          // Reset button
           const resetBtn = document.createElement("button");
           resetBtn.textContent = "Reset view";
           Object.assign(resetBtn.style, {
@@ -212,12 +198,12 @@ export default function RegionMap({
           } as CSSStyleDeclaration);
           mapContainer.current!.appendChild(resetBtn);
 
-          // Interactions
           map!.on("mouseenter", "countries-hit", () => (map!.getCanvas().style.cursor = "pointer"));
           map!.on("mouseleave", "countries-hit", () => {
             map!.getCanvas().style.cursor = "";
             tooltip.style.display = "none";
           });
+
           map!.on("mousemove", "countries-hit", (e: any) => {
             const f = e.features?.[0];
             if (!f) return;
@@ -228,7 +214,12 @@ export default function RegionMap({
             tooltip.style.display = "block";
             tooltip.innerHTML = `<div style="font-weight:600">${name}</div>`;
           });
+
           map!.on("click", "countries-hit", (e: any) => {
+            const now = Date.now();
+            if (now - lastClickTime < 250) return; // Throttle clicks
+            lastClickTime = now;
+
             const f = e.features?.[0];
             if (!f) return;
             const neName = f.properties?.NAME;
@@ -267,17 +258,37 @@ export default function RegionMap({
         });
 
         map.on("error", (e) => {
-          // eslint-disable-next-line no-console
           console.error("Map error:", (e as any)?.error || e);
         });
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error("Data load error:", err);
       }
     })();
 
     return () => {
-      if (map) map.remove();
+      if (map) {
+        const layers = [
+          "region-fill", "region-outline",
+          "countries-hit", "country-highlight", "country-outline", "bg"
+        ];
+        const sources = ["region", "countries"];
+
+        layers.forEach(id => {
+          if (map!.getLayer(id)) {
+            try { map!.removeLayer(id); } catch {}
+          }
+        });
+
+        sources.forEach(id => {
+          if (map!.getSource(id)) {
+            try { map!.removeSource(id); } catch {}
+          }
+        });
+
+        map.remove();
+        map = null;
+      }
+
       if (mapContainer.current) {
         while (mapContainer.current.firstChild) {
           mapContainer.current.removeChild(mapContainer.current.firstChild);

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 
-// Stable, lightweight basemap. If GPU still struggles, you can also try:
+// Stable, lightweight basemap. You can also try Positron if preferred.
 // const MAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
 
@@ -85,10 +85,8 @@ export default function RegionMap({
           center: [10, 20],
           zoom: 1.8,
           attributionControl: true,
-          // Reduce GPU pressure
           antialias: false,
           failIfMajorPerformanceCaveat: false,
-          // Prefer WebGL2, tune buffers
           contextCreationOptions: {
             alpha: true,
             antialias: false,
@@ -101,7 +99,6 @@ export default function RegionMap({
         });
 
         map.setMaxBounds([[-180, -85], [180, 85]]);
-        // Minimize style transitions (less texture churn)
         try {
           (map as any).style?.setTransition?.({ duration: 0, delay: 0 });
         } catch {}
@@ -119,7 +116,7 @@ export default function RegionMap({
         });
 
         map.on("load", () => {
-          // Extra safety: ensure no terrain or expensive collisions
+          // Ensure no terrain; guard optional access without assigning through ?. directly
           try {
             const painter = (map as any).painter;
             if (painter && "terrain" in painter) {
@@ -242,7 +239,7 @@ export default function RegionMap({
             tooltip.innerHTML = `<div style="font-weight:600">${name}</div>`;
           });
           map!.on("click", "countries-hit", (e: any) => {
-            const f = e.features?.;
+            const f = e.features?.[0]; // fixed: access first feature
             if (!f) return;
             const neName = f.properties?.NAME;
             if (!neName) return;

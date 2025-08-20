@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 
-// Stable, lightweight basemap. You can also try Positron if preferred.
+// Stable, lightweight basemap. You can switch to Positron if preferred:
 // const MAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
 
@@ -33,7 +33,6 @@ export default function RegionMap({
 
     let map: maplibregl.Map | null = null;
 
-    // Safe JSON loader with clear errors
     const fetchJson = async (url: string, label: string) => {
       const res = await fetch(url);
       const txt = await res.text();
@@ -78,7 +77,7 @@ export default function RegionMap({
           (f: any) => f?.properties?.NAME === selectedRegion
         );
 
-        // Create the map with GPU-friendly options to avoid WebGL context loss
+        // Map constructor WITHOUT contextCreationOptions (fixes TS error)
         map = new maplibregl.Map({
           container: mapContainer.current!,
           style: MAP_STYLE,
@@ -86,16 +85,7 @@ export default function RegionMap({
           zoom: 1.8,
           attributionControl: true,
           antialias: false,
-          failIfMajorPerformanceCaveat: false,
-          contextCreationOptions: {
-            alpha: true,
-            antialias: false,
-            depth: true,
-            stencil: false,
-            premultipliedAlpha: true,
-            preserveDrawingBuffer: false,
-            powerPreference: "high-performance"
-          }
+          failIfMajorPerformanceCaveat: false
         });
 
         map.setMaxBounds([[-180, -85], [180, 85]]);
@@ -116,7 +106,7 @@ export default function RegionMap({
         });
 
         map.on("load", () => {
-          // Ensure no terrain; guard optional access without assigning through ?. directly
+          // Guard internal toggles safely
           try {
             const painter = (map as any).painter;
             if (painter && "terrain" in painter) {
@@ -130,7 +120,7 @@ export default function RegionMap({
             }
           } catch {}
 
-          // Background fallback (in case basemap style hiccups)
+          // Background fallback
           try {
             map!.addLayer({ id: "bg", type: "background", paint: { "background-color": "#eef4f8" } });
           } catch {}
@@ -239,7 +229,7 @@ export default function RegionMap({
             tooltip.innerHTML = `<div style="font-weight:600">${name}</div>`;
           });
           map!.on("click", "countries-hit", (e: any) => {
-            const f = e.features?.[0]; // fixed: access first feature
+            const f = e.features?.[0];
             if (!f) return;
             const neName = f.properties?.NAME;
             if (!neName) return;

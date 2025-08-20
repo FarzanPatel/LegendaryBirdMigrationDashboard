@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 
-const MAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
+// Stable, lightweight basemap. If GPU still struggles, you can also try:
+// const MAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
+const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
 
 const REGION_COLORS: Record<string, string> = {
   Green: "#22c55e",
@@ -31,14 +33,15 @@ export default function RegionMap({
 
     let map: maplibregl.Map | null = null;
 
+    // Safe JSON loader with clear errors
     const fetchJson = async (url: string, label: string) => {
       const res = await fetch(url);
       const txt = await res.text();
-      if (!res.ok) throw new Error(`${label} HTTP ${res.status}: ${txt.slice(0, 120)}`);
+      if (!res.ok) throw new Error(`${label} HTTP ${res.status}: ${txt.slice(0, 160)}`);
       try {
         return JSON.parse(txt);
       } catch (e) {
-        throw new Error(`${label} JSON parse error: ${String(e)} | ${txt.slice(0, 120)}`);
+        throw new Error(`${label} JSON parse error: ${String(e)} | ${txt.slice(0, 160)}`);
       }
     };
 
@@ -75,23 +78,52 @@ export default function RegionMap({
           (f: any) => f?.properties?.NAME === selectedRegion
         );
 
+        // Create the map with GPU-friendly options to avoid WebGL context loss
         map = new maplibregl.Map({
           container: mapContainer.current!,
           style: MAP_STYLE,
           center: [10, 20],
           zoom: 1.8,
           attributionControl: true,
-          antialias: true,
-          dragRotate: false,
-          pitchWithRotate: false,
-          pitch: 0,
-          bearing: 0
+          // Reduce GPU pressure
+          antialias: false,
+          failIfMajorPerformanceCaveat: false,
+          // Prefer WebGL2, tune buffers
+          contextCreationOptions: {
+            alpha: true,
+            antialias: false,
+            depth: true,
+            stencil: false,
+            premultipliedAlpha: true,
+            preserveDrawingBuffer: false,
+            powerPreference: "high-performance"
+          }
         });
 
         map.setMaxBounds([[-180, -85], [180, 85]]);
+        // Minimize style transitions (less texture churn)
+        try {
+          (map as any).style?.setTransition?.({ duration: 0, delay: 0 });
+        } catch {}
+
+        // WebGL context loss/restore handlers
+        map.getCanvas().addEventListener("webglcontextlost", (e: any) => {
+          e.preventDefault();
+          // eslint-disable-next-line no-console
+          console.warn("WebGL context lost");
+        });
+        map.getCanvas().addEventListener("webglcontextrestored", () => {
+          // eslint-disable-next-line no-console
+          console.warn("WebGL context restored");
+          try { map!.resize(); } catch {}
+        });
 
         map.on("load", () => {
-          // Background fallback (even if style hiccups)
+          // Extra safety: ensure no terrain or expensive collisions
+          try { (map as any).painter?.terrain = null; } catch {}
+          try { (map as any).setCollisionBehavior?.({ split: false }); } catch {}
+
+          // Background fallback (in case basemap style hiccups)
           try {
             map!.addLayer({ id: "bg", type: "background", paint: { "background-color": "#eef4f8" } });
           } catch {}
@@ -200,7 +232,7 @@ export default function RegionMap({
             tooltip.innerHTML = `<div style="font-weight:600">${name}</div>`;
           });
           map!.on("click", "countries-hit", (e: any) => {
-            const f = e.features?.[0]; // <--- corrected line
+            const f = e.features?.[0]; // corrected syntax
             if (!f) return;
             const neName = f.properties?.NAME;
             if (!neName) return;
@@ -209,6 +241,7 @@ export default function RegionMap({
             map!.setFilter("country-outline", ["==", ["get", "NAME"], neName]);
             fitToFeature(map!, f, 68);
           });
+
           resetBtn.onclick = () => {
             map!.setFilter("country-highlight", ["==", ["get", "NAME"], ""]);
             map!.setFilter("country-outline", ["==", ["get", "NAME"], ""]);
@@ -259,7 +292,15 @@ export default function RegionMap({
   return (
     <div
       className="rounded-2xl overflow-hidden bg-white shadow"
-      style={{ height: "min(65vh, 760px)", minHeight: "560px", width: "100%", position: "relative" }}
+      style={{
+        height: "min(65vh, 760px)",
+        minHeight: "560px",
+        width: "100%",
+        position: "relative",
+        isolation: "isolate",
+        willChange: "auto",
+        contain: "layout paint size"
+      }}
     >
       <div ref={mapContainer} style={{ width: "100%", height: "100%" }} />
     </div>

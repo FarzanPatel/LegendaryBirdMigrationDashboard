@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import * as d3 from "d3-geo";
+import { geoNaturalEarth1, geoPath, GeoProjection } from "d3-geo";
 
 type Risk = "Green" | "Warning" | "Red";
 
@@ -31,10 +31,10 @@ export default function RegionMap({
   regionData: Record<string, { risk_zone: Risk }>;
   viewMode: "region" | "country";
   selectedCountry: string | null;
-  onCountrySelect: (neCountryName: string) => void;
+  onCountrySelect: (neCountryName: string) => void; // pass "" to reset
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState<{ w: number; h: number }>({ w: 800, h: 560 });
+  const [size, setSize] = useState<{ w: number; h: number }>({ w: 900, h: 580 });
 
   const [regions, setRegions] = useState<FeatureCollection | null>(null);
   const [countries, setCountries] = useState<FeatureCollection | null>(null);
@@ -42,21 +42,21 @@ export default function RegionMap({
   const [hoverName, setHoverName] = useState<string | null>(null);
   const [hoverXY, setHoverXY] = useState<[number, number] | null>(null);
 
-  // Resize observer for responsiveness
+  // Responsive container sizing
   useEffect(() => {
     if (!containerRef.current) return;
     const el = containerRef.current;
     const ro = new ResizeObserver(() => {
       const rect = el.getBoundingClientRect();
-      const w = Math.max(600, rect.width);
-      const h = Math.max(520, Math.min(window.innerHeight * 0.65, 760));
+      const w = Math.max(680, rect.width);
+      const h = Math.max(540, Math.min(window.innerHeight * 0.65, 760));
       setSize({ w, h });
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
-  // Load geojson once
+  // Load GeoJSON
   useEffect(() => {
     const safeFetch = async (url: string) => {
       const res = await fetch(url);
@@ -83,7 +83,7 @@ export default function RegionMap({
     };
   }, []);
 
-  // Region feature and countries filtered to region
+  // Selected region feature and countries subset
   const regionFeature: Feature | null = useMemo(() => {
     if (!regions) return null;
     return regions.features.find((f) => f?.properties?.NAME === selectedRegion) || null;
@@ -97,54 +97,52 @@ export default function RegionMap({
     return { type: "FeatureCollection", features: feats };
   }, [countries, selectedRegion]);
 
-  // Projection and path generator that fits to region or country
-  const { projection, path } = useMemo(() => {
-    const proj = d3.geoNaturalEarth1(); // great-looking, compact projection
-    const pth = d3.geoPath(proj);
-    const pad = 20; // px padding
-    const fitTo = (fc: FeatureCollection | null) => {
-      if (!fc || fc.features.length === 0) {
-        proj.fitExtent(
-          [
-            [pad, pad],
-            [size.w - pad, size.h - pad],
-          ],
-          {
-            type: "Sphere",
-          } as any
-        );
-        return;
-      }
-      proj.fitExtent(
-        [
-          [pad, pad],
-          [size.w - pad, size.h - pad],
-        ],
-        fc as any
-      );
-    };
-
-    // Decide target to fit
+  // Determine what to fit to (region or selected country)
+  const fitTarget: FeatureCollection | null = useMemo(() => {
     if (viewMode === "country" && selectedCountry && regionCountries) {
       const cf =
-        regionCountries.features.find(
-          (f) => f?.properties?.NAME === selectedCountry
-        ) || null;
-      if (cf) {
-        fitTo({ type: "FeatureCollection", features: [cf] });
-      } else {
-        fitTo(regionFeature ? { type: "FeatureCollection", features: [regionFeature] } : null);
-      }
-    } else {
-      fitTo(regionFeature ? { type: "FeatureCollection", features: [regionFeature] } : null);
+        regionCountries.features.find((f) => f?.properties?.NAME === selectedCountry) || null;
+      if (cf) return { type: "FeatureCollection", features: [cf] };
+    }
+    return regionFeature ? { type: "FeatureCollection", features: [regionFeature] } : null;
+  }, [viewMode, selectedCountry, regionCountries, regionFeature]);
+
+  // Build projection and path with proper fit and padding
+  const { projection, path } = useMemo((): { projection: GeoProjection; path: any } => {
+    const proj = geoNaturalEarth1();
+    const p = geoPath(proj);
+    const pad = 28; // visual padding in px
+
+    const target =
+      fitTarget && fitTarget.features.length
+        ? fitTarget
+        : ({
+            type: "Sphere",
+          } as any);
+
+    // Fit the projection to target within our SVG size and padding
+    proj.fitExtent(
+      [
+        [pad, pad],
+        [size.w - pad, size.h - pad],
+      ],
+      target as any
+    );
+
+    // Clamp zoom so small islands are not over-zoomed
+    const s = (proj as any).scale ? (proj as any).scale() : null;
+    if (s && s > 500) {
+      (proj as any).scale(500);
     }
 
-    return { projection: proj, path: pth };
-  }, [size, regionFeature, regionCountries, viewMode, selectedCountry]);
+    return { projection: proj, path: p };
+  }, [size, fitTarget]);
 
-  // Color for the selected region
   const regionRisk: Risk = (regionData[selectedRegion]?.risk_zone || "Warning") as Risk;
   const regionColor = REGION_COLORS[regionRisk];
+
+  // Helpers for path creation
+  const featurePath = (f: Feature) => path(f) || "";
 
   return (
     <div
@@ -162,14 +160,14 @@ export default function RegionMap({
       }}
     >
       <svg width={size.w} height={size.h} role="img" aria-label="Migration map">
-        {/* Light background */}
+        {/* Subtle background */}
         <rect width={size.w} height={size.h} fill="#eef4f8" />
 
-        {/* Region polygon outline and fill */}
+        {/* Region display */}
         {regionFeature && (
           <>
             <path
-              d={path(regionFeature) || ""}
+              d={featurePath(regionFeature)}
               fill={viewMode === "region" ? regionColor : regionColor + "33"}
               stroke={regionColor}
               strokeWidth={2}
@@ -178,16 +176,17 @@ export default function RegionMap({
           </>
         )}
 
-        {/* Countries hit layer */}
+        {/* Countries in region (hit layer + selected highlight) */}
         {regionCountries &&
           regionCountries.features.map((f) => {
-            const d = path(f) || "";
+            const d = featurePath(f);
             if (!d) return null;
             const name = f.properties?.NAME as string;
             const isSelected = viewMode === "country" && selectedCountry === name;
+
             return (
               <g key={name}>
-                {/* Invisible hit area */}
+                {/* Hit area */}
                 <path
                   d={d}
                   fill="#000"
@@ -203,7 +202,7 @@ export default function RegionMap({
                   onClick={() => onCountrySelect(name)}
                   style={{ cursor: "pointer" }}
                 />
-                {/* Highlight if selected */}
+                {/* Selected highlight */}
                 {isSelected && (
                   <>
                     <path d={d} fill={regionColor} fillOpacity={0.55} />
@@ -215,7 +214,7 @@ export default function RegionMap({
           })}
       </svg>
 
-      {/* Reset button */}
+      {/* Reset view */}
       <button
         onClick={() => onCountrySelect("")}
         className="absolute right-3 top-3 z-10 text-sm bg-white border border-gray-200 rounded-lg px-3 py-1 shadow"

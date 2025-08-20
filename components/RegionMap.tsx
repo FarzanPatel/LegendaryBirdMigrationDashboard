@@ -1,8 +1,12 @@
+"use client";
+
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 
+// Map style from Carto
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
 
+// Risk zone colors
 const REGION_COLORS: Record<string, string> = {
   Green: "#22c55e",
   Warning: "#fbbf24",
@@ -27,78 +31,17 @@ export default function RegionMap({
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
 
-  const buildMap = async () => {
+  useEffect(() => {
     if (!mapContainer.current) return;
-
-    const cleanup = () => {
-      const map = mapRef.current;
-      if (!map) return;
-
-      // Remove all layers and sources
-      for (const layer of map.getStyle().layers ?? []) {
-        if (map.getLayer(layer.id)) {
-          try {
-            map.removeLayer(layer.id);
-          } catch {}
-        }
-      }
-      for (const id in map.getStyle().sources) {
-        if (map.getSource(id)) {
-          try {
-            map.removeSource(id);
-          } catch {}
-        }
-      }
-
-      try {
-        map.remove();
-      } catch {}
-      mapRef.current = null;
-
-      // Remove all child DOM nodes (tooltips, buttons)
-      if (mapContainer.current) {
-        while (mapContainer.current.firstChild) {
-          mapContainer.current.removeChild(mapContainer.current.firstChild);
-        }
-      }
-    };
-
-    cleanup(); // In case of re-initialization
 
     const fetchJson = async (url: string, label: string) => {
       const res = await fetch(url);
-      const txt = await res.text();
-      if (!res.ok) throw new Error(`${label} HTTP ${res.status}: ${txt.slice(0, 160)}`);
-      return JSON.parse(txt);
+      if (!res.ok) throw new Error(`${label} HTTP ${res.status}`);
+      return await res.json();
     };
 
-    try {
-      const [regionsGeo, countriesGeo] = await Promise.all([
-        fetchJson("/data/regions.geojson", "regions"),
-        fetchJson("/data/countries.geojson", "countries")
-      ]);
-
-      const regionFeature = regionsGeo?.features?.find(
-        (f: any) => f?.properties?.NAME === selectedRegion
-      );
-      const regionRisk = (regionData[selectedRegion]?.risk_zone || "Warning") as Risk;
-
-      const map = new maplibregl.Map({
-        container: mapContainer.current,
-        style: MAP_STYLE,
-        center: [10, 20],
-        zoom: 1.8,
-        attributionControl: true,
-        antialias: false,
-        failIfMajorPerformanceCaveat: false,
-        canvasContextAttributes: { contextType: "webgl" } // <- WebGL1 only
-      });
-
-      mapRef.current = map;
-
-      map.setMaxBounds([[-180, -85], [180, 85]]);
-
-      const fitToFeature = (feature: any, pad = 60) => {
+    const fitToFeature = (map: maplibregl.Map, feature: any, pad = 60) => {
+      try {
         const coords: number[][] = [];
         const push = (g: any) => {
           if (g.type === "Polygon") g.coordinates.flat(1).forEach((c: number[]) => coords.push(c));
@@ -111,136 +54,212 @@ export default function RegionMap({
           const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
           const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
           map.fitBounds([sw, ne], { padding: pad, duration: 650, maxZoom: 5.5 });
+        } else {
+          map.easeTo({ center: [10, 20], zoom: 1.8, duration: 600 });
         }
-      };
-
-      map.on("load", () => {
-        // === REGIONS ===
-        const regionFC = { type: "FeatureCollection", features: regionFeature ? [regionFeature] : [] };
-        map.addSource("region", { type: "geojson", data: regionFC });
-        map.addLayer({
-          id: "region-fill",
-          type: "fill",
-          source: "region",
-          paint: {
-            "fill-color": REGION_COLORS[regionRisk],
-            "fill-opacity": viewMode === "region" ? 0.35 : 0.18,
-            "fill-outline-color": REGION_COLORS[regionRisk]
-          }
-        });
-
-        // === COUNTRIES ===
-        const regionCountries = {
-          type: "FeatureCollection",
-          features: countriesGeo?.features?.filter(
-            (f: any) => f?.properties?.CONTINENT === selectedRegion
-          )
-        };
-        map.addSource("countries", { type: "geojson", data: regionCountries });
-        map.addLayer({
-          id: "countries-hit",
-          type: "fill",
-          source: "countries",
-          paint: { "fill-color": "#000", "fill-opacity": 0 }
-        });
-        map.addLayer({
-          id: "country-highlight",
-          type: "fill",
-          source: "countries",
-          filter: ["==", ["get", "NAME"], ""],
-          paint: { "fill-color": REGION_COLORS[regionRisk], "fill-opacity": 0.55 }
-        });
-
-        // === TOOLTIPS + INTERACTION ===
-        const tooltip = document.createElement("div");
-        Object.assign(tooltip.style, {
-          position: "absolute",
-          pointerEvents: "none",
-          padding: "6px 10px",
-          background: "#111827",
-          color: "white",
-          borderRadius: "8px",
-          fontSize: "12px",
-          display: "none"
-        });
-        mapContainer.current?.appendChild(tooltip);
-
-        map.on("mousemove", "countries-hit", (e: any) => {
-          const f = e.features?.[0];
-          if (!f) return;
-          tooltip.innerHTML = `<strong>${f.properties?.NAME}</strong>`;
-          tooltip.style.left = `${e.point.x + 10}px`;
-          tooltip.style.top = `${e.point.y + 10}px`;
-          tooltip.style.display = "block";
-        });
-
-        map.on("mouseleave", "countries-hit", () => {
-          tooltip.style.display = "none";
-        });
-
-        map.on("click", "countries-hit", (e: any) => {
-          const f = e.features?.[0];
-          if (!f) return;
-          const name = f.properties?.NAME;
-          onCountrySelect(name);
-          map.setFilter("country-highlight", ["==", ["get", "NAME"], name]);
-          fitToFeature(f);
-        });
-
-        // Initial fit
-        if (viewMode === "country" && selectedCountry) {
-          const cf = regionCountries.features.find((f: any) => f?.properties?.NAME === selectedCountry);
-          if (cf) {
-            map.setFilter("country-highlight", ["==", ["get", "NAME"], selectedCountry]);
-            fitToFeature(cf);
-          }
-        } else if (regionFeature) {
-          fitToFeature(regionFeature);
-        }
-      });
-
-      // === Context loss handling ===
-      map.getCanvas().addEventListener("webglcontextlost", (e: any) => {
-        e.preventDefault();
-        console.warn("WebGL context lost, will attempt to rebuild...");
-      });
-
-      map.getCanvas().addEventListener("webglcontextrestored", () => {
-        console.warn("WebGL context restored, rebuilding map...");
-        buildMap(); // Rebuild everything
-      });
-
-    } catch (err) {
-      console.error("Map init error:", err);
-    }
-  };
-
-  useEffect(() => {
-    buildMap();
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-      if (mapContainer.current) {
-        while (mapContainer.current.firstChild) {
-          mapContainer.current.removeChild(mapContainer.current.firstChild);
-        }
+      } catch {
+        map.easeTo({ center: [10, 20], zoom: 1.8, duration: 600 });
       }
     };
-  }, [selectedRegion, viewMode, selectedCountry, regionData]);
+
+    (async () => {
+      try {
+        const [regionsGeo, countriesGeo] = await Promise.all([
+          fetchJson("/data/regions.geojson", "regions.geojson"),
+          fetchJson("/data/countries.geojson", "countries.geojson")
+        ]);
+
+        const regionFeature = regionsGeo.features.find(
+          (f: any) => f?.properties?.NAME === selectedRegion
+        );
+
+        // Custom canvas to force WebGL1 context
+        const canvas = document.createElement("canvas");
+        const gl = canvas.getContext("webgl", {
+          antialias: false,
+          failIfMajorPerformanceCaveat: false
+        });
+
+        if (!gl) {
+          console.warn("WebGL1 not supported. Map not initialized.");
+          return;
+        }
+
+        const map = new maplibregl.Map({
+          container: mapContainer.current!,
+          style: MAP_STYLE,
+          center: [10, 20],
+          zoom: 1.8,
+          attributionControl: true,
+          canvas
+        });
+
+        mapRef.current = map;
+
+        map.setMaxBounds([[-180, -85], [180, 85]]);
+
+        map.getCanvas().addEventListener("webglcontextlost", (e) => {
+          e.preventDefault();
+          console.warn("WebGL context lost");
+        });
+
+        map.getCanvas().addEventListener("webglcontextrestored", () => {
+          console.warn("WebGL context restored");
+          try {
+            map.resize();
+          } catch {}
+        });
+
+        map.on("load", () => {
+          // Background
+          map.addLayer({ id: "bg", type: "background", paint: { "background-color": "#eef4f8" } });
+
+          const regionRisk = (regionData[selectedRegion]?.risk_zone || "Warning") as Risk;
+          const regionFC = { type: "FeatureCollection", features: regionFeature ? [regionFeature] : [] };
+
+          // Region Layers
+          map.addSource("region", { type: "geojson", data: regionFC });
+          map.addLayer({
+            id: "region-fill",
+            type: "fill",
+            source: "region",
+            paint: {
+              "fill-color": REGION_COLORS[regionRisk],
+              "fill-opacity": viewMode === "region" ? 0.35 : 0.18,
+              "fill-outline-color": REGION_COLORS[regionRisk]
+            }
+          });
+          map.addLayer({
+            id: "region-outline",
+            type: "line",
+            source: "region",
+            paint: { "line-color": "#1f2937", "line-width": 2.2, "line-dasharray": [4, 3] }
+          });
+
+          // Countries in region
+          const regionCountries = {
+            type: "FeatureCollection",
+            features: (countriesGeo.features || []).filter(
+              (f: any) => f?.properties?.CONTINENT === selectedRegion
+            )
+          };
+
+          map.addSource("countries", { type: "geojson", data: regionCountries });
+          map.addLayer({
+            id: "countries-hit",
+            type: "fill",
+            source: "countries",
+            paint: { "fill-color": "#000", "fill-opacity": 0 }
+          });
+          map.addLayer({
+            id: "country-highlight",
+            type: "fill",
+            source: "countries",
+            filter: ["==", ["get", "NAME"], ""],
+            paint: { "fill-color": REGION_COLORS[regionRisk], "fill-opacity": 0.55 }
+          });
+          map.addLayer({
+            id: "country-outline",
+            type: "line",
+            source: "countries",
+            filter: ["==", ["get", "NAME"], ""],
+            paint: { "line-color": "#111827", "line-width": 2 }
+          });
+
+          // Tooltip
+          const tooltip = document.createElement("div");
+          Object.assign(tooltip.style, {
+            position: "absolute",
+            pointerEvents: "none",
+            padding: "6px 10px",
+            borderRadius: "8px",
+            background: "rgba(17,24,39,0.92)",
+            color: "white",
+            fontSize: "12px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+            transform: "translate(8px,8px)",
+            display: "none",
+            zIndex: "3"
+          } as CSSStyleDeclaration);
+          mapContainer.current!.appendChild(tooltip);
+
+          // Reset Button
+          const resetBtn = document.createElement("button");
+          resetBtn.textContent = "Reset view";
+          Object.assign(resetBtn.style, {
+            position: "absolute",
+            right: "12px",
+            top: "12px",
+            zIndex: "4",
+            padding: "8px 12px",
+            borderRadius: "10px",
+            border: "1px solid #e5e7eb",
+            background: "#ffffff",
+            fontSize: "12px",
+            cursor: "pointer",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.08)"
+          } as CSSStyleDeclaration);
+          mapContainer.current!.appendChild(resetBtn);
+
+          // Interactions
+          map.on("mouseenter", "countries-hit", () => (map.getCanvas().style.cursor = "pointer"));
+          map.on("mouseleave", "countries-hit", () => {
+            map.getCanvas().style.cursor = "";
+            tooltip.style.display = "none";
+          });
+          map.on("mousemove", "countries-hit", (e: any) => {
+            const f = e.features?.[0];
+            if (!f) return;
+            const name = f.properties?.NAME ?? "";
+            const pt = e.point;
+            tooltip.style.left = `${pt.x}px`;
+            tooltip.style.top = `${pt.y}px`;
+            tooltip.style.display = "block";
+            tooltip.innerHTML = `<div style="font-weight:600">${name}</div>`;
+          });
+          map.on("click", "countries-hit", (e: any) => {
+            const f = e.features?.[0];
+            if (!f) return;
+            const neName = f.properties?.NAME;
+            if (!neName) return;
+            onCountrySelect(neName);
+            map.setFilter("country-highlight", ["==", ["get", "NAME"], neName]);
+            map.setFilter("country-outline", ["==",
+            map.setFilter("country-outline", ["==", ["get", "NAME"], neName]);
+          });
+
+          // Reset view button click
+          resetBtn.addEventListener("click", () => {
+            onCountrySelect(null);
+            map.setFilter("country-highlight", ["==", ["get", "NAME"], ""]);
+            map.setFilter("country-outline", ["==", ["get", "NAME"], ""]);
+            fitToFeature(map, regionFeature);
+          });
+
+          // Initial view fit
+          fitToFeature(map, regionFeature);
+        });
+
+        // Clean up on unmount
+        return () => {
+          map.remove();
+          if (tooltip.parentNode) tooltip.parentNode.removeChild(tooltip);
+          if (resetBtn.parentNode) resetBtn.parentNode.removeChild(resetBtn);
+          mapRef.current = null;
+        };
+      } catch (err) {
+        console.error("Error loading map data:", err);
+      }
+    })();
+
+  }, [selectedRegion, regionData, viewMode, onCountrySelect]);
 
   return (
     <div
-      className="rounded-2xl overflow-hidden bg-white shadow"
-      style={{
-        height: "min(65vh, 760px)",
-        minHeight: "560px",
-        width: "100%",
-        position: "relative"
-      }}
-    >
-      <div ref={mapContainer} style={{ width: "100%", height: "100%" }} />
-    </div>
+      ref={mapContainer}
+      style={{ height: "100%", width: "100%", position: "relative" }}
+      aria-label="Region map"
+      role="region"
+    />
   );
 }

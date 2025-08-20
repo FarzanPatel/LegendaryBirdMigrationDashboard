@@ -76,7 +76,7 @@ export default function RegionMap({
           (f: any) => f?.properties?.NAME === selectedRegion
         );
 
-        // Map with supported options
+        // Map with supported options only
         map = new maplibregl.Map({
           container: mapContainer.current!,
           style: MAP_STYLE,
@@ -112,7 +112,7 @@ export default function RegionMap({
           // Ensure a sized canvas right after style load
           try { map!.resize(); } catch {}
 
-          // Internal toggles (guarded)
+          // Guard internal toggles safely (no optional-chain assignment)
           try {
             const painter = (map as any).painter;
             if (painter && "terrain" in painter) {
@@ -235,7 +235,7 @@ export default function RegionMap({
             tooltip.innerHTML = `<div style="font-weight:600">${name}</div>`;
           });
           map!.on("click", "countries-hit", (e: any) => {
-            const f = e.features?.;
+            const f = e.features?.[0]; // FIXED: access first feature
             if (!f) return;
             const neName = f.properties?.NAME;
             if (!neName) return;
@@ -277,7 +277,7 @@ export default function RegionMap({
           console.error("Map error:", (e as any)?.error || e);
         });
 
-        // Cleanup for resize handler
+        // Cleanup resize handler when effect re-runs or unmounts
         return () => window.removeEventListener("resize", onResize);
       } catch (err) {
         // eslint-disable-next-line no-console

@@ -1,23 +1,31 @@
-import { useEffect, useRef } from "react";
-import maplibregl from "maplibre-gl";
-
-// Lightweight, stable basemap
-const MAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
-
-const REGION_COLORS: Record<string, string> = {
-  Green: "#22c55e",
-  Warning: "#fbbf24",
-  Red: "#ef4444"
-};
+import { useEffect, useMemo, useRef, useState } from "react";
+import * as d3 from "d3-geo";
 
 type Risk = "Green" | "Warning" | "Red";
+
+const REGION_COLORS: Record<Risk, string> = {
+  Green: "#22c55e",
+  Warning: "#fbbf24",
+  Red: "#ef4444",
+};
+
+type Feature = {
+  type: "Feature";
+  properties: Record<string, any>;
+  geometry: any;
+};
+
+type FeatureCollection = {
+  type: "FeatureCollection";
+  features: Feature[];
+};
 
 export default function RegionMap({
   selectedRegion,
   regionData,
   viewMode,
   selectedCountry,
-  onCountrySelect
+  onCountrySelect,
 }: {
   selectedRegion: string;
   regionData: Record<string, { risk_zone: Risk }>;
@@ -25,292 +33,211 @@ export default function RegionMap({
   selectedCountry: string | null;
   onCountrySelect: (neCountryName: string) => void;
 }) {
-  const mapContainer = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number }>({ w: 800, h: 560 });
 
+  const [regions, setRegions] = useState<FeatureCollection | null>(null);
+  const [countries, setCountries] = useState<FeatureCollection | null>(null);
+
+  const [hoverName, setHoverName] = useState<string | null>(null);
+  const [hoverXY, setHoverXY] = useState<[number, number] | null>(null);
+
+  // Resize observer for responsiveness
   useEffect(() => {
-    if (!mapContainer.current) return;
+    if (!containerRef.current) return;
+    const el = containerRef.current;
+    const ro = new ResizeObserver(() => {
+      const rect = el.getBoundingClientRect();
+      const w = Math.max(600, rect.width);
+      const h = Math.max(520, Math.min(window.innerHeight * 0.65, 760));
+      setSize({ w, h });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
-    let map: maplibregl.Map | null = null;
-
-    const fetchJson = async (url: string, label: string) => {
+  // Load geojson once
+  useEffect(() => {
+    const safeFetch = async (url: string) => {
       const res = await fetch(url);
       const txt = await res.text();
-      if (!res.ok) throw new Error(`${label} HTTP ${res.status}: ${txt.slice(0, 160)}`);
-      try {
-        return JSON.parse(txt);
-      } catch (e) {
-        throw new Error(`${label} JSON parse error: ${String(e)} | ${txt.slice(0, 160)}`);
-      }
+      if (!res.ok) throw new Error(`${url} HTTP ${res.status}: ${txt.slice(0, 200)}`);
+      return JSON.parse(txt) as FeatureCollection;
     };
-
-    const fitToFeature = (m: maplibregl.Map, feature: any, pad = 60) => {
-      try {
-        const coords: number[][] = [];
-        const push = (g: any) => {
-          if (g.type === "Polygon") g.coordinates.flat(1).forEach((c: number[]) => coords.push(c));
-          else if (g.type === "MultiPolygon") g.coordinates.flat(2).forEach((c: number[]) => coords.push(c));
-        };
-        if (feature?.geometry) push(feature.geometry);
-        if (coords.length) {
-          const lngs = coords.map(c => c[0]);
-          const lats = coords.map(c => c[1]);
-          const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
-          const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
-          m.fitBounds([sw, ne], { padding: pad, duration: 650, maxZoom: 5.5 });
-        } else {
-          m.easeTo({ center: [10, 20], zoom: 1.8, duration: 600 });
-        }
-      } catch {
-        m.easeTo({ center: [10, 20], zoom: 1.8, duration: 600 });
-      }
-    };
-
-    (async () => {
-      try {
-        const [regionsGeo, countriesGeo] = await Promise.all([
-          fetchJson("/data/regions.geojson", "regions.geojson"),
-          fetchJson("/data/countries.geojson", "countries.geojson")
-        ]);
-
-        const regionFeature = regionsGeo?.features?.find(
-          (f: any) => f?.properties?.NAME === selectedRegion
-        );
-
-        // Map with supported options only
-        map = new maplibregl.Map({
-          container: mapContainer.current!,
-          style: MAP_STYLE,
-          center: [10, 20],
-          zoom: 1.8,
-          attributionControl: true,
-          antialias: false,
-          failIfMajorPerformanceCaveat: false
-        });
-
-        map.setMaxBounds([[-180, -85], [180, 85]]);
-        try {
-          (map as any).style?.setTransition?.({ duration: 0, delay: 0 });
-        } catch {}
-
-        // WebGL context resilience
-        map.getCanvas().addEventListener("webglcontextlost", (e: any) => {
-          e.preventDefault();
-          // eslint-disable-next-line no-console
-          console.warn("WebGL context lost");
-        });
-        map.getCanvas().addEventListener("webglcontextrestored", () => {
-          // eslint-disable-next-line no-console
-          console.warn("WebGL context restored");
-          try { map!.resize(); } catch {}
-        });
-
-        // Keep the map sized on window resize
-        const onResize = () => { try { map?.resize(); } catch {} };
-        window.addEventListener("resize", onResize);
-
-        map.on("load", () => {
-          // Ensure a sized canvas right after style load
-          try { map!.resize(); } catch {}
-
-          // Guard internal toggles safely (no optional-chain assignment)
-          try {
-            const painter = (map as any).painter;
-            if (painter && "terrain" in painter) {
-              painter.terrain = null as any;
-            }
-          } catch {}
-          try {
-            const setCollisionBehavior = (map as any).setCollisionBehavior;
-            if (typeof setCollisionBehavior === "function") {
-              setCollisionBehavior({ split: false });
-            }
-          } catch {}
-
-          // Background fallback
-          try {
-            map!.addLayer({ id: "bg", type: "background", paint: { "background-color": "#eef4f8" } });
-          } catch {}
-
-          const regionRisk = (regionData[selectedRegion]?.risk_zone || "Warning") as Risk;
-          const regionFC = { type: "FeatureCollection", features: regionFeature ? [regionFeature] : [] };
-
-          // Region layers
-          map!.addSource("region", { type: "geojson", data: regionFC });
-          map!.addLayer({
-            id: "region-fill",
-            type: "fill",
-            source: "region",
-            paint: {
-              "fill-color": REGION_COLORS[regionRisk],
-              "fill-opacity": viewMode === "region" ? 0.35 : 0.18,
-              "fill-outline-color": REGION_COLORS[regionRisk]
-            }
-          });
-          map!.addLayer({
-            id: "region-outline",
-            type: "line",
-            source: "region",
-            paint: { "line-color": "#1f2937", "line-width": 2.2, "line-dasharray": [4, 3] }
-          });
-
-          // Countries limited to selected region
-          const regionCountries = {
-            type: "FeatureCollection",
-            features: (countriesGeo?.features || []).filter(
-              (f: any) => f?.properties?.CONTINENT === selectedRegion
-            )
-          };
-
-          map!.addSource("countries", { type: "geojson", data: regionCountries });
-          map!.addLayer({
-            id: "countries-hit",
-            type: "fill",
-            source: "countries",
-            paint: { "fill-color": "#000", "fill-opacity": 0 }
-          });
-          map!.addLayer({
-            id: "country-highlight",
-            type: "fill",
-            source: "countries",
-            filter: ["==", ["get", "NAME"], ""],
-            paint: { "fill-color": REGION_COLORS[regionRisk], "fill-opacity": 0.55 }
-          });
-          map!.addLayer({
-            id: "country-outline",
-            type: "line",
-            source: "countries",
-            filter: ["==", ["get", "NAME"], ""],
-            paint: { "line-color": "#111827", "line-width": 2 }
-          });
-
-          // Tooltip
-          const tooltip = document.createElement("div");
-          Object.assign(tooltip.style, {
-            position: "absolute",
-            pointerEvents: "none",
-            padding: "6px 10px",
-            borderRadius: "8px",
-            background: "rgba(17,24,39,0.92)",
-            color: "white",
-            fontSize: "12px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-            transform: "translate(8px,8px)",
-            display: "none",
-            zIndex: "3"
-          } as CSSStyleDeclaration);
-          mapContainer.current!.appendChild(tooltip);
-
-          // Reset button
-          const resetBtn = document.createElement("button");
-          resetBtn.textContent = "Reset view";
-          Object.assign(resetBtn.style, {
-            position: "absolute",
-            right: "12px",
-            top: "12px",
-            zIndex: "4",
-            padding: "8px 12px",
-            borderRadius: "10px",
-            border: "1px solid #e5e7eb",
-            background: "#ffffff",
-            fontSize: "12px",
-            cursor: "pointer",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)"
-          } as CSSStyleDeclaration);
-          mapContainer.current!.appendChild(resetBtn);
-
-          // Interactions
-          map!.on("mouseenter", "countries-hit", () => (map!.getCanvas().style.cursor = "pointer"));
-          map!.on("mouseleave", "countries-hit", () => {
-            map!.getCanvas().style.cursor = "";
-            tooltip.style.display = "none";
-          });
-          map!.on("mousemove", "countries-hit", (e: any) => {
-            const f = e.features?.[0];
-            if (!f) return;
-            const name = f.properties?.NAME ?? "";
-            const pt = e.point;
-            tooltip.style.left = `${pt.x}px`;
-            tooltip.style.top = `${pt.y}px`;
-            tooltip.style.display = "block";
-            tooltip.innerHTML = `<div style="font-weight:600">${name}</div>`;
-          });
-          map!.on("click", "countries-hit", (e: any) => {
-            const f = e.features?.[0]; // FIXED: access first feature
-            if (!f) return;
-            const neName = f.properties?.NAME;
-            if (!neName) return;
-            onCountrySelect(neName);
-            map!.setFilter("country-highlight", ["==", ["get", "NAME"], neName]);
-            map!.setFilter("country-outline", ["==", ["get", "NAME"], neName]);
-            fitToFeature(map!, f, 68);
-          });
-
-          resetBtn.onclick = () => {
-            map!.setFilter("country-highlight", ["==", ["get", "NAME"], ""]);
-            map!.setFilter("country-outline", ["==", ["get", "NAME"], ""]);
-            if (regionFeature) fitToFeature(map!, regionFeature, 60);
-            else map!.easeTo({ center: [10, 20], zoom: 1.8, duration: 600 });
-          };
-
-          // Initial fit
-          if (viewMode === "country" && selectedCountry) {
-            const cf = regionCountries.features.find((f: any) => f?.properties?.NAME === selectedCountry);
-            if (cf) {
-              map!.setFilter("country-highlight", ["==", ["get", "NAME"], selectedCountry]);
-              map!.setFilter("country-outline", ["==", ["get", "NAME"], selectedCountry]);
-              fitToFeature(map!, cf, 68);
-            } else if (regionFeature) {
-              fitToFeature(map!, regionFeature, 60);
-            }
-          } else if (regionFeature) {
-            fitToFeature(map!, regionFeature, 60);
-          }
-
-          map!.on("remove", () => {
-            tooltip.remove();
-            resetBtn.remove();
-          });
-        });
-
-        map.on("error", (e) => {
-          // eslint-disable-next-line no-console
-          console.error("Map error:", (e as any)?.error || e);
-        });
-
-        // Cleanup resize handler when effect re-runs or unmounts
-        return () => window.removeEventListener("resize", onResize);
-      } catch (err) {
+    let mounted = true;
+    Promise.all([
+      safeFetch("/data/regions.geojson"),
+      safeFetch("/data/countries.geojson"),
+    ])
+      .then(([r, c]) => {
+        if (!mounted) return;
+        setRegions(r);
+        setCountries(c);
+      })
+      .catch((e) => {
         // eslint-disable-next-line no-console
-        console.error("Data load error:", err);
-      }
-    })();
-
+        console.error("GeoJSON load error:", e);
+      });
     return () => {
-      if (map) map.remove();
-      if (mapContainer.current) {
-        while (mapContainer.current.firstChild) {
-          mapContainer.current.removeChild(mapContainer.current.firstChild);
-        }
-      }
+      mounted = false;
     };
-  }, [selectedRegion, viewMode, selectedCountry, regionData, onCountrySelect]);
+  }, []);
+
+  // Region feature and countries filtered to region
+  const regionFeature: Feature | null = useMemo(() => {
+    if (!regions) return null;
+    return regions.features.find((f) => f?.properties?.NAME === selectedRegion) || null;
+  }, [regions, selectedRegion]);
+
+  const regionCountries: FeatureCollection | null = useMemo(() => {
+    if (!countries) return null;
+    const feats = countries.features.filter(
+      (f) => f?.properties?.CONTINENT === selectedRegion
+    );
+    return { type: "FeatureCollection", features: feats };
+  }, [countries, selectedRegion]);
+
+  // Projection and path generator that fits to region or country
+  const { projection, path } = useMemo(() => {
+    const proj = d3.geoNaturalEarth1(); // great-looking, compact projection
+    const pth = d3.geoPath(proj);
+    const pad = 20; // px padding
+    const fitTo = (fc: FeatureCollection | null) => {
+      if (!fc || fc.features.length === 0) {
+        proj.fitExtent(
+          [
+            [pad, pad],
+            [size.w - pad, size.h - pad],
+          ],
+          {
+            type: "Sphere",
+          } as any
+        );
+        return;
+      }
+      proj.fitExtent(
+        [
+          [pad, pad],
+          [size.w - pad, size.h - pad],
+        ],
+        fc as any
+      );
+    };
+
+    // Decide target to fit
+    if (viewMode === "country" && selectedCountry && regionCountries) {
+      const cf =
+        regionCountries.features.find(
+          (f) => f?.properties?.NAME === selectedCountry
+        ) || null;
+      if (cf) {
+        fitTo({ type: "FeatureCollection", features: [cf] });
+      } else {
+        fitTo(regionFeature ? { type: "FeatureCollection", features: [regionFeature] } : null);
+      }
+    } else {
+      fitTo(regionFeature ? { type: "FeatureCollection", features: [regionFeature] } : null);
+    }
+
+    return { projection: proj, path: pth };
+  }, [size, regionFeature, regionCountries, viewMode, selectedCountry]);
+
+  // Color for the selected region
+  const regionRisk: Risk = (regionData[selectedRegion]?.risk_zone || "Warning") as Risk;
+  const regionColor = REGION_COLORS[regionRisk];
 
   return (
     <div
-      className="rounded-2xl overflow-hidden bg-white shadow"
+      ref={containerRef}
+      className="rounded-2xl overflow-hidden bg-white shadow relative"
       style={{
         height: "min(65vh, 760px)",
         minHeight: "560px",
         width: "100%",
-        position: "relative",
         isolation: "isolate",
-        willChange: "auto",
-        contain: "layout paint size",
-        backfaceVisibility: "hidden",
-        transform: "none"
+      }}
+      onMouseLeave={() => {
+        setHoverName(null);
+        setHoverXY(null);
       }}
     >
-      <div ref={mapContainer} style={{ width: "100%", height: "100%" }} />
+      <svg width={size.w} height={size.h} role="img" aria-label="Migration map">
+        {/* Light background */}
+        <rect width={size.w} height={size.h} fill="#eef4f8" />
+
+        {/* Region polygon outline and fill */}
+        {regionFeature && (
+          <>
+            <path
+              d={path(regionFeature) || ""}
+              fill={viewMode === "region" ? regionColor : regionColor + "33"}
+              stroke={regionColor}
+              strokeWidth={2}
+              strokeDasharray="4 3"
+            />
+          </>
+        )}
+
+        {/* Countries hit layer */}
+        {regionCountries &&
+          regionCountries.features.map((f) => {
+            const d = path(f) || "";
+            if (!d) return null;
+            const name = f.properties?.NAME as string;
+            const isSelected = viewMode === "country" && selectedCountry === name;
+            return (
+              <g key={name}>
+                {/* Invisible hit area */}
+                <path
+                  d={d}
+                  fill="#000"
+                  fillOpacity={0}
+                  onMouseMove={(e) => {
+                    setHoverName(name);
+                    setHoverXY([e.clientX, e.clientY]);
+                  }}
+                  onMouseOut={() => {
+                    setHoverName(null);
+                    setHoverXY(null);
+                  }}
+                  onClick={() => onCountrySelect(name)}
+                  style={{ cursor: "pointer" }}
+                />
+                {/* Highlight if selected */}
+                {isSelected && (
+                  <>
+                    <path d={d} fill={regionColor} fillOpacity={0.55} />
+                    <path d={d} fill="none" stroke="#111827" strokeWidth={2} />
+                  </>
+                )}
+              </g>
+            );
+          })}
+      </svg>
+
+      {/* Reset button */}
+      <button
+        onClick={() => onCountrySelect("")}
+        className="absolute right-3 top-3 z-10 text-sm bg-white border border-gray-200 rounded-lg px-3 py-1 shadow"
+      >
+        Reset view
+      </button>
+
+      {/* Tooltip */}
+      {hoverName && hoverXY && (
+        <div
+          className="pointer-events-none text-white text-xs rounded-lg px-2 py-1 shadow"
+          style={{
+            position: "fixed",
+            left: hoverXY[0] + 10,
+            top: hoverXY[1] + 10,
+            background: "rgba(17,24,39,0.92)",
+            zIndex: 20,
+          }}
+        >
+          {hoverName}
+        </div>
+      )}
     </div>
   );
 }

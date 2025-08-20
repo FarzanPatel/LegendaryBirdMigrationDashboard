@@ -224,7 +224,6 @@ export default function RegionMap({
             if (!neName) return;
             onCountrySelect(neName);
             map.setFilter("country-highlight", ["==", ["get", "NAME"], neName]);
-            map.setFilter("country-outline", ["==",
             map.setFilter("country-outline", ["==", ["get", "NAME"], neName]);
           });
 

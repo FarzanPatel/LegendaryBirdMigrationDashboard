@@ -2,11 +2,13 @@ import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
+
 const REGION_COLORS: Record<string, string> = {
   Green: "#22c55e",
   Warning: "#fbbf24",
   Red: "#ef4444"
 };
+
 type Risk = "Green" | "Warning" | "Red";
 
 export default function RegionMap({
@@ -89,7 +91,7 @@ export default function RegionMap({
         map.setMaxBounds([[-180, -85], [180, 85]]);
 
         map.on("load", () => {
-          // Background fallback
+          // Background fallback (even if style hiccups)
           try {
             map!.addLayer({ id: "bg", type: "background", paint: { "background-color": "#eef4f8" } });
           } catch {}
@@ -198,7 +200,7 @@ export default function RegionMap({
             tooltip.innerHTML = `<div style="font-weight:600">${name}</div>`;
           });
           map!.on("click", "countries-hit", (e: any) => {
-            const f = e.features?.; // <-- fixed syntax
+            const f = e.features?.[0]; // <--- corrected line
             if (!f) return;
             const neName = f.properties?.NAME;
             if (!neName) return;
